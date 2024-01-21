@@ -4,11 +4,8 @@
 
 using namespace std;
 
-Metronome::Metronome(juce::AudioDeviceManager &deviceManager)
-    : devmgr(deviceManager)
+Metronome::Metronome()
 {
-    player.reset(new juce::AudioSourcePlayer());
-
     mAudioFormatManager.registerBasicFormats();
 
     juce::File myFile{juce::File::getSpecialLocation(juce::File::userDesktopDirectory)};
@@ -23,16 +20,6 @@ Metronome::Metronome(juce::AudioDeviceManager &deviceManager)
     pMetronomeSample.reset(new juce::AudioFormatReaderSource(formatReader, true));
 }
 
-Metronome::~Metronome()
-{
-    // Remove the audio callback before closing the audio device
-    devmgr.removeAudioCallback(player.get());
-}
-
-void Metronome::audioStoped()
-{
-    devmgr.removeAudioCallback(player.get());
-}
 
 void Metronome::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
@@ -86,16 +73,3 @@ void Metronome::getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill)
     }
 }
 
-void Metronome::playAudioOneTime(juce::AudioSourceChannelInfo &bufferToFill)
-{
-    pMetronomeSample->getNextAudioBlock(bufferToFill);
-    // std::cout << "Entrou no play:" << std::endl;
-    // player->setGain(0.5);
-    // player->setSource(pMetronomeSample.get());
-    // devmgr.addAudioCallback(player.get());
-}
-
-void Metronome::reset()
-{
-    mTotalSamples = 0;
-}
