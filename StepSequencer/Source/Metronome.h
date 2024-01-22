@@ -18,8 +18,9 @@ private:
     int mUpdateInterval{0};
     double mBpm{140.0};
     int mSamplesRemaining{0};
+    int currentKickIndex{0};
 
     juce::AudioFormatManager mAudioFormatManager;
     std::unique_ptr<juce::AudioFormatReaderSource> pMetronomeSample{nullptr};
-
+    std::vector<int> kickSequence;
 };
