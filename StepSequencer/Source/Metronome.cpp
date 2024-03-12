@@ -6,84 +6,146 @@ using namespace std;
 
 Metronome::Metronome()
 {
-  kickSequence = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+  sample1Sequence = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+  sample2Sequence = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
 
   mAudioFormatManager.registerBasicFormats();
 
   juce::File myFile{juce::File::getSpecialLocation(juce::File::userDesktopDirectory)};
   auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "hard-kick.wav");
+  auto mySamples2 = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "short-hi-hat.wav");
 
   jassert(mySamples[0].exists());
+  jassert(mySamples2[0].exists());
 
   auto formatReader = mAudioFormatManager.createReaderFor(mySamples[0]);
-  double inputFileSampleRate = formatReader->sampleRate;
-  std::cout << "Sample Rate of sample: " << inputFileSampleRate << std::endl;
+  auto formatReader2 = mAudioFormatManager.createReaderFor(mySamples2[0]);
 
-  pMetronomeSample.reset(new juce::AudioFormatReaderSource(formatReader, true));
+  pSample1.reset(new juce::AudioFormatReaderSource(formatReader, true));
+  pSample2.reset(new juce::AudioFormatReaderSource(formatReader2, true));
 }
 
 void Metronome::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
   mSampleRate = sampleRate;
-  mUpdateInterval = 60.0 / mBpm * mSampleRate;
+  mUpdateInterval = (60.0 / mBpm * mSampleRate) / 4;
 
-  if (pMetronomeSample != nullptr)
+  if (pSample1 != nullptr)
   {
-    pMetronomeSample->prepareToPlay(samplesPerBlockExpected, sampleRate);
+    juce::Reverb::Parameters reverbParameters;
+    reverbParameters.roomSize = 0.9;
+    reverbParameters.dryLevel = 0.9;
+    reverbParameters.damping = 0.9;
+    reverbParameters.wetLevel = 0.9;
+
+    pSample1->prepareToPlay(samplesPerBlockExpected, sampleRate);
+    juce::AudioSource *rawPointer = pSample1.get();
+    iirFilterAudioSource1 = new juce::IIRFilterAudioSource(pSample1.get(), false);
+    // iirFilterAudioSource1->setCoefficients(juce::IIRCoefficients::makeLowPass(mSampleRate, 100.0));
+    reverbAudioSource1 = new juce::ReverbAudioSource(iirFilterAudioSource1, false);
+    // reverbAudioSource1->setParameters(reverbParameters);
   }
+  if (pSample2 != nullptr)
+  {
+    juce::Reverb::Parameters reverbParameters;
+    reverbParameters.roomSize = 0.9;
+    reverbParameters.dryLevel = 0.9;
+    reverbParameters.damping = 0.9;
+    reverbParameters.wetLevel = 0.9;
+
+    pSample2->prepareToPlay(samplesPerBlockExpected, sampleRate);
+    juce::AudioSource *rawPointer = pSample2.get();
+    iirFilterAudioSource2 = new juce::IIRFilterAudioSource(rawPointer, false);
+    // iirFilterAudioSource2->setCoefficients(juce::IIRCoefficients::makeHighPass(mSampleRate, 2000.0).makeBandPass(mSampleRate, 500.0));
+    reverbAudioSource2 = new juce::ReverbAudioSource(iirFilterAudioSource2, false);
+    // reverbAudioSource2->setParameters(reverbParameters);
+  }
+
+  mixerAudioSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 void Metronome::getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill)
 {
+  
   auto bufferSize = bufferToFill.numSamples;
-  std::cout << "Metronome getNextAudioBlock: Samples to fill = " << bufferToFill.numSamples << std::endl;
   mTotalSamples += bufferSize;
 
   mSamplesRemaining = mTotalSamples % mUpdateInterval;
 
-  std::cout << mSamplesRemaining << std::endl;
-
-  // Check if it's time to start playing the metronome sound
   if ((mSamplesRemaining + bufferSize) >= mUpdateInterval)
   {
     const auto timeToStartPlaying = mUpdateInterval - mSamplesRemaining;
 
-    pMetronomeSample->setNextReadPosition(0);
+    pSample1->setNextReadPosition(0);
+    pSample2->setNextReadPosition(0);
 
     for (auto sample = 0; sample < bufferSize; ++sample)
     {
       if (sample == timeToStartPlaying)
       {
-        // Check if the current index is within the bounds of the kick sequence
-        if (currentKickIndex < kickSequence.size())
+        if (currentSample1index < sample1Sequence.size())
         {
-          // If the value at the current index is 1, play the metronome sound
-          if (kickSequence[currentKickIndex] == 1)
+          if (sample1Sequence[currentSample1index] == 1)
           {
-            std::cout << "Play" << std::endl;
-            pMetronomeSample->getNextAudioBlock(bufferToFill);
+            std::cout << "Tocou kick: " << currentSample1index << std::endl;
+            mixerAudioSource.addInputSource(toneGeneratorAudioSource, false);
+          }
+          else
+          {
+            mixerAudioSource.removeInputSource(toneGeneratorAudioSource);
           }
 
-          // Move to the next index in the kick sequence
-          currentKickIndex++;
+          if (sample2Sequence[currentSample2index] == 1)
+          {
+            std::cout << "Tocou hi-hat: " << currentSample2index << std::endl;
+            mixerAudioSource.addInputSource(reverbAudioSource2, false);
+          }
+          else
+          {
+            mixerAudioSource.removeInputSource(reverbAudioSource2);
+          }
+
+          mixerAudioSource.getNextAudioBlock(bufferToFill);
+
+          currentSample1index++;
+          currentSample2index++;
         }
         else
         {
-          currentKickIndex = 0;
+          currentSample1index = 0;
+          currentSample2index = 0;
+
+          if (sample1Sequence[currentSample1index] == 1)
+          {
+            std::cout << "Tocou kick: " << currentSample1index << std::endl;
+            mixerAudioSource.addInputSource(toneGeneratorAudioSource, false);
+          }
+          else
+          {
+            mixerAudioSource.removeInputSource(toneGeneratorAudioSource);
+          }
+
+          if (sample2Sequence[currentSample2index] == 1)
+          {
+            std::cout << "Tocou hi-hat: " << currentSample2index << std::endl;
+            mixerAudioSource.addInputSource(reverbAudioSource2, false);
+          }
+          else
+          {
+            mixerAudioSource.removeInputSource(reverbAudioSource2);
+          }
+
+          mixerAudioSource.getNextAudioBlock(bufferToFill);
+
+          currentSample1index++;
+          currentSample2index++;
         }
       }
     }
   }
 
-  // Reset the metronome sample position if needed
-  if (pMetronomeSample->getNextReadPosition() != 0)
+  if ((pSample1->getNextReadPosition() != 0) || (pSample2->getNextReadPosition() != 0))
   {
-    std::cout << "Entrou aqui" << pMetronomeSample->getNextReadPosition() << std::endl;
-    // Recreate the AudioFormatReaderSource with a new AudioFormatReader if necessary
-    // auto formatReader = mAudioFormatManager.createReaderFor(mySamples[0]);
-    // pMetronomeSample.reset(new AudioFormatReaderSource(formatReader, true));
-
-    // Now proceed to read the next audio block
-    pMetronomeSample->getNextAudioBlock(bufferToFill);
+    mixerAudioSource.getNextAudioBlock(bufferToFill);
   }
 }

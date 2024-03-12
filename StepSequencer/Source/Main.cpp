@@ -30,15 +30,13 @@ public:
                                         int numSamples,
                                         const juce::AudioIODeviceCallbackContext &context) override
   {
-    // Create an AudioBuffer<float> for outputChannelData
+    // Create AudioBuffer objects for input and output
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
 
-    // Use AudioSourceChannelInfo with the AudioBuffer
+    // Process the metronome for output
     juce::AudioSourceChannelInfo bufferToFill(&outputBuffer, 0, numSamples);
-
     bufferToFill.clearActiveBufferRegion();
     metronome.getNextAudioBlock(bufferToFill);
-    // metronome.playAudioOneTime(channelInfo);
   }
 
 private:
@@ -64,6 +62,24 @@ int main()
   devmgr.initialiseWithDefaultDevices(0, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   Metronome metronome;
+
+  // auto activeInputChannels = device->getActiveInputChannels();
+  // juce::Array<int> activeBits = activeInputChannels.getBitRangeAsInt(0, activeInputChannels.getHighestBit() + 1);
+
+  // juce::String activeChannelsString;
+
+  // for (int bit : activeBits)
+  // {
+  //   activeChannelsString += juce::String(bit) + ", ";
+  // }
+
+  // if (activeChannelsString.isNotEmpty())
+  // {
+  //   // Remove the trailing ", "
+  //   activeChannelsString = activeChannelsString.dropLastCharacters(2);
+  // }
+
+  // std::cout << "Active input channels: " << activeChannelsString << std::endl;
 
   if (device && device->isOpen())
   {
