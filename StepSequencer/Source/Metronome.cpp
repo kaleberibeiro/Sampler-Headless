@@ -7,13 +7,13 @@ using namespace std;
 Metronome::Metronome()
 {
   sample1Sequence = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
-  sample2Sequence = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
+  sample2Sequence = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
   mAudioFormatManager.registerBasicFormats();
 
   juce::File myFile{juce::File::getSpecialLocation(juce::File::userDesktopDirectory)};
   auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "hard-kick.wav");
-  auto mySamples2 = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "short-hi-hat.wav");
+  auto mySamples2 = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "bass.wav");
 
   jassert(mySamples[0].exists());
   jassert(mySamples2[0].exists());
@@ -66,7 +66,7 @@ void Metronome::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 
 void Metronome::getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill)
 {
-  
+  bufferToFill.clearActiveBufferRegion();
   auto bufferSize = bufferToFill.numSamples;
   mTotalSamples += bufferSize;
 
@@ -76,33 +76,36 @@ void Metronome::getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill)
   {
     const auto timeToStartPlaying = mUpdateInterval - mSamplesRemaining;
 
-    pSample1->setNextReadPosition(0);
-    pSample2->setNextReadPosition(0);
-
     for (auto sample = 0; sample < bufferSize; ++sample)
     {
       if (sample == timeToStartPlaying)
       {
         if (currentSample1index < sample1Sequence.size())
         {
-          if (sample1Sequence[currentSample1index] == 1)
-          {
-            std::cout << "Tocou kick: " << currentSample1index << std::endl;
-            mixerAudioSource.addInputSource(toneGeneratorAudioSource, false);
-          }
-          else
-          {
-            mixerAudioSource.removeInputSource(toneGeneratorAudioSource);
-          }
+          // if (sample1Sequence[currentSample1index] == 1)
+          // {
+          //   pSample1->setNextReadPosition(0);
+          //   std::cout << "Tocou kick: " << currentSample1index << std::endl;
+          //   mixerAudioSource.addInputSource(pSample1.get(), false);
+          // }
+          // else
+          // {
+          //   mixerAudioSource.removeInputSource(pSample1.get());
+          // }
 
           if (sample2Sequence[currentSample2index] == 1)
           {
+            pSample2->setNextReadPosition(0);
+            mixerAudioSource.removeInputSource(pSample2.get());
             std::cout << "Tocou hi-hat: " << currentSample2index << std::endl;
-            mixerAudioSource.addInputSource(reverbAudioSource2, false);
+            mixerAudioSource.addInputSource(pSample2.get(), false);
           }
           else
           {
-            mixerAudioSource.removeInputSource(reverbAudioSource2);
+            if (!pSample2->getNextReadPosition() != 0)
+            {
+              mixerAudioSource.removeInputSource(pSample2.get());
+            }
           }
 
           mixerAudioSource.getNextAudioBlock(bufferToFill);
@@ -115,24 +118,30 @@ void Metronome::getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill)
           currentSample1index = 0;
           currentSample2index = 0;
 
-          if (sample1Sequence[currentSample1index] == 1)
-          {
-            std::cout << "Tocou kick: " << currentSample1index << std::endl;
-            mixerAudioSource.addInputSource(toneGeneratorAudioSource, false);
-          }
-          else
-          {
-            mixerAudioSource.removeInputSource(toneGeneratorAudioSource);
-          }
+          // if (sample1Sequence[currentSample1index] == 1)
+          // {
+          //   pSample1->setNextReadPosition(0);
+          //   std::cout << "Tocou kick: " << currentSample1index << std::endl;
+          //   mixerAudioSource.addInputSource(pSample1.get(), false);
+          // }
+          // else
+          // {
+          //   mixerAudioSource.removeInputSource(pSample1.get());
+          // }
 
           if (sample2Sequence[currentSample2index] == 1)
           {
+            pSample2->setNextReadPosition(0);
+            mixerAudioSource.removeInputSource(pSample2.get());
             std::cout << "Tocou hi-hat: " << currentSample2index << std::endl;
-            mixerAudioSource.addInputSource(reverbAudioSource2, false);
+            mixerAudioSource.addInputSource(pSample2.get(), false);
           }
           else
           {
-            mixerAudioSource.removeInputSource(reverbAudioSource2);
+            if (!pSample2->getNextReadPosition() != 0)
+            {
+              mixerAudioSource.removeInputSource(pSample2.get());
+            }
           }
 
           mixerAudioSource.getNextAudioBlock(bufferToFill);
