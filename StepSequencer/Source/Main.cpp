@@ -32,17 +32,43 @@ public:
   {
     // Create AudioBuffer objects for input and output
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
+    // juce::dsp::Limiter<float> limiter;
+    // juce::dsp::ProcessSpec processorSpec;
+    // processorSpec.numChannels = numOutputChannels;
+    // processorSpec.sampleRate = device->getCurrentSampleRate();
+    // processorSpec.maximumBlockSize = device->getDefaultBufferSize();
+
+    // limiter.setThreshold(-2.0f);
+    // // limiter.setRelease(2.0f);
+    // limiter.prepare(processorSpec);
 
     // Process the metronome for output
     juce::AudioSourceChannelInfo bufferToFill(&outputBuffer, 0, numSamples);
     bufferToFill.clearActiveBufferRegion();
     metronome.getNextAudioBlock(bufferToFill);
+    // metronome.playOneTime(bufferToFill);
+    // count++;
+    // if (count < 1000)
+    // {
+    //   metronome.playOneTime(bufferToFill);
+    // }
+    // else
+    // {
+    //   metronome.playOneTimeMixer(bufferToFill);
+    // }
+
+    // std::cout << "Count: " << count << std::endl;
+    // std::cout << "Entrou" << std::endl;
+
+    // juce::dsp::AudioBlock<float> audioBlock(bufferToFill.buffer->getArrayOfWritePointers(), numOutputChannels, numSamples);
+    // limiter.process(juce::dsp::ProcessContextReplacing<float>(audioBlock));
   }
 
 private:
   Metronome &metronome;
   juce::AudioIODevice *device;
   juce::AudioSourceChannelInfo channelInfo;
+  int count = 0;
 };
 
 // Function to check if a key has been pressed

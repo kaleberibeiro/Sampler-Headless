@@ -4,6 +4,10 @@
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1">
   <MAINGROUP id="XJnwE3" name="StepSequencer">
     <GROUP id="{537828AC-D497-73D8-D181-0964E2D0C775}" name="Source">
+      <FILE id="aXTdkU" name="SamplerSoundSynth.cpp" compile="1" resource="0"
+            file="Source/SamplerSoundSynth.cpp"/>
+      <FILE id="GdxuLN" name="SamplerSoundSynth.h" compile="0" resource="0"
+            file="Source/SamplerSoundSynth.h"/>
       <FILE id="ttKlvs" name="Metronome.cpp" compile="1" resource="0" file="Source/Metronome.cpp"/>
       <FILE id="hbGUUc" name="Metronome.h" compile="0" resource="0" file="Source/Metronome.h"/>
       <FILE id="iQ1UkM" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
