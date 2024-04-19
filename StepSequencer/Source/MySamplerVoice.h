@@ -4,7 +4,12 @@
 class MySamplerVoice : public juce::SamplerVoice
 {
 public:
-  MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples1) : mySynth(mySynth), lengthInSamples1(lengthInSamples1) {}
+  MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples1) : mySynth(mySynth), lengthInSamples1(lengthInSamples1)
+  {
+    sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0};
+    sequences[1] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[2] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
   {
@@ -34,6 +39,7 @@ public:
 
   void countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
+  void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
 
   void renderNextBlock(juce::AudioBuffer<float> &buffer, int startSample, int numSamples) override
@@ -50,4 +56,10 @@ private:
   double mBpm{140.0};
   int mSamplesRemaining{0};
   int currentIndexSequence{0};
+  int currentSequenceIndex{0};
+  int sequenceSize{16};
+  int size{3};
+  std::vector<int> sequences[3];
+  int samplesPosition[3] = {0, 0, 0};
+  bool playingSamples[3] = {true, true, false};
 };
