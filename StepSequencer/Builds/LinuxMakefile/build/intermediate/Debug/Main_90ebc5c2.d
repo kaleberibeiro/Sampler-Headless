@@ -307,4 +307,4 @@ build/intermediate/Debug/Main_90ebc5c2.o: ../../Source/Main.cpp \
  /home/kalebe/JUCE/modules/../../JUCE/modules/juce_midi_ci/ci/juce_CIDeviceOptions.h \
  /home/kalebe/JUCE/modules/../../JUCE/modules/juce_midi_ci/ci/juce_CIDeviceListener.h \
  /home/kalebe/JUCE/modules/../../JUCE/modules/juce_midi_ci/ci/juce_CIDevice.h \
- ../../Source/Metronome.h
+ ../../Source/Metronome.h ../../Source/MySamplerVoice.h

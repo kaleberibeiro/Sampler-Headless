@@ -72,6 +72,7 @@ ifeq ($(CONFIG),Release)
 endif
 
 OBJECTS_CONSOLEAPP := \
+  $(JUCE_OBJDIR)/MySamplerVoice_4841e65f.o \
   $(JUCE_OBJDIR)/SamplerSoundSynth_d8b3dc76.o \
   $(JUCE_OBJDIR)/Metronome_fd219413.o \
   $(JUCE_OBJDIR)/Main_90ebc5c2.o \
@@ -96,6 +97,11 @@ $(JUCE_OUTDIR)/$(JUCE_TARGET_CONSOLEAPP) : $(OBJECTS_CONSOLEAPP) $(JUCE_OBJDIR)/
 	-$(V_AT)mkdir -p $(JUCE_LIBDIR)
 	-$(V_AT)mkdir -p $(JUCE_OUTDIR)
 	$(V_AT)$(CXX) -o $(JUCE_OUTDIR)/$(JUCE_TARGET_CONSOLEAPP) $(OBJECTS_CONSOLEAPP) $(JUCE_LDFLAGS) $(shell cat $(JUCE_OBJDIR)/execinfo.cmd) $(RESOURCES) $(TARGET_ARCH)
+
+$(JUCE_OBJDIR)/MySamplerVoice_4841e65f.o: ../../Source/MySamplerVoice.cpp
+	-$(V_AT)mkdir -p $(@D)
+	@echo "Compiling MySamplerVoice.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_CONSOLEAPP) $(JUCE_CFLAGS_CONSOLEAPP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/SamplerSoundSynth_d8b3dc76.o: ../../Source/SamplerSoundSynth.cpp
 	-$(V_AT)mkdir -p $(@D)

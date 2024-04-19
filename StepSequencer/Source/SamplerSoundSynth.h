@@ -17,9 +17,12 @@ class SamplerSoundSynth
 {
 public:
   SamplerSoundSynth();
+  ~SamplerSoundSynth();
   // ~SamplerSoundSynth();
-  void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
-  void getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill);
+  void noteOn(int midiChannel, int midiNoteNumber, float velocity);
+  void noteOff(int midiChannel, int midiNoteNumber, float velocity, bool allowTailOff);
+  // void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
+  // void getNextAudioBlock(juce::AudioSourceChannelInfo &bufferToFill);
 
 private:
   int mTotalSamples{0};
@@ -29,11 +32,11 @@ private:
   int mSamplesRemaining{0};
   int currentSample1index{0};
   int currentSample2index{0};
-  const int mNumVoices {3};
-  
+  const int mNumVoices{3};
+
   juce::AudioFormatManager mAudioFormatManager;
-  juce::SamplerSound* mSamplerSound1;
-  juce::SamplerSound* mSamplerSound2;
+  juce::SamplerSound *mSamplerSound1;
+  juce::SamplerSound *mSamplerSound2;
   juce::Synthesiser mSampler;
   std::unique_ptr<juce::AudioFormatReaderSource> pSample1{nullptr};
   // juce::MixerAudioSource mixerAudioSource;
