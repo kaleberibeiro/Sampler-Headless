@@ -34,8 +34,6 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
       {
         mSamplePosition = 0;
         checkSequence(buffer, startSample, numSamples);
-        // std::cout << "Toca aqui: " << sample << " bufferSize: " << bufferSize << "sample lenght: " << *lengthInSamples1 << std::endl;
-        // triggerSamples(buffer, startSample, numSamples);
       }
     }
   }
@@ -82,11 +80,10 @@ void MySamplerVoice::checkSequence(juce::AudioBuffer<float> &buffer, int startSa
       }
       else if (samplesPosition[i] == 0)
       {
-        //Remover sample
+        // Remover sample
       }
     }
   }
-
 
   currentSequenceIndex++;
 
@@ -98,6 +95,7 @@ void MySamplerVoice::checkSequence(juce::AudioBuffer<float> &buffer, int startSa
 
 void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
+  // std::cout << "Sample lenght: " << *lengthInSamples1 << std::endl;
   juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(0);
   juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
 
@@ -110,11 +108,6 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       {
         buffer.setSample(channel, startSample + sample, audioData[samplesPosition[0]]);
         ++samplesPosition[0];
-      }
-      else
-      {
-        buffer.clear(channel, sample, numSamples - sample);
-        return;
       }
     }
   }

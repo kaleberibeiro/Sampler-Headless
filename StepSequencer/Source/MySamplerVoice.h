@@ -7,8 +7,13 @@ public:
   MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples1) : mySynth(mySynth), lengthInSamples1(lengthInSamples1)
   {
     sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0};
-    sequences[1] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[2] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    sequences[1] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    sequences[2] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    for (int i = 0; i < 3; i++)
+    {
+      std::cout << "Sample lenght: " << i << " | " << lengthInSamples1[i] << std::endl;
+    }
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -62,4 +67,5 @@ private:
   std::vector<int> sequences[3];
   int samplesPosition[3] = {0, 0, 0};
   bool playingSamples[3] = {true, true, false};
+  juce::AudioBuffer<float> synthBuffer;
 };

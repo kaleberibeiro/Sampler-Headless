@@ -66,9 +66,7 @@ public:
 
   void audioDeviceAboutToStart(juce::AudioIODevice *device) override
   {
-    // metronome.prepareToPlay(device->getDefaultBufferSize(), device->getCurrentSampleRate());
     mySamplerVoice.prepareToPlay(device->getDefaultBufferSize(), device->getCurrentSampleRate());
-    // mySynth.setCurrentPlaybackSampleRate(device->getCurrentSampleRate());
   }
 
   void audioDeviceStopped() override
@@ -119,14 +117,15 @@ int main()
 {
 
   juce::AudioDeviceManager devmgr;
-  devmgr.initialiseWithDefaultDevices(0, 2);
+  devmgr.initialiseWithDefaultDevices(0, 1);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
-  int lengthInSamples1 = 0;
-  MySamplerVoice myVoice(&mySynth, &lengthInSamples1);
-  std::string fileNames[3] = {"mdp-kick-trance.wav", "closed-hi-hat.wav", "bass.wav"};
+  int lengthInSamples[3] = {0, 0, 0};
+  std::string fileNames[3] = {"bass.wav", "closed-hi-hat.wav", "bass.wav"};
+  juce::BigInteger range;
+  range.setRange(0, 128, true);
 
   mAudioFormatManager.registerBasicFormats();
   juce::File myFile{juce::File::getSpecialLocation(juce::File::userDesktopDirectory)};
@@ -136,20 +135,19 @@ int main()
 
   for (int i = 0; i < 1; i++)
   {
-    mySynth.addVoice(&myVoice);
-  }
-
-  for (int i = 0; i < 1; i++)
-  {
     auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, fileNames[i]);
     jassert(mySamples[0].exists());
     auto formatReader = mAudioFormatManager.createReaderFor(mySamples[0]);
-    juce::BigInteger range;
-    range.setRange(0, 128, true);
+    lengthInSamples[i] = formatReader->lengthInSamples;
 
-    lengthInSamples1 = formatReader->lengthInSamples;
+    mySynth.addSound(new juce::SamplerSound(fileNames[i], *formatReader, range, 60, 0.0, 0.0, 20.0));
+  }
 
-    mySynth.addSound(new juce::SamplerSound(fileNames[i], *formatReader, range, 60, 0.1, 0.1, 10.0));
+  MySamplerVoice myVoice(&mySynth, lengthInSamples);
+
+  for (int i = 0; i < 1; i++)
+  {
+    mySynth.addVoice(&myVoice);
   }
 
   if (device && device->isOpen())
