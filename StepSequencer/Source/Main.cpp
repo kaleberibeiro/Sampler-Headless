@@ -9,36 +9,39 @@
 class MyMidiInputCallback : public juce::MidiInputCallback
 {
 public:
-  MyMidiInputCallback(Metronome &metronome, juce::AudioIODevice *device)
-      : metronome(metronome), device(device)
+  MyMidiInputCallback(juce::Synthesiser &mySynth, MySamplerVoice &mySamplerVoice, juce::AudioIODevice *device)
+      : mySynth(mySynth), mySamplerVoice(mySamplerVoice), device(device)
   {
   }
 
   void handleIncomingMidiMessage(juce::MidiInput *source, const juce::MidiMessage &message) override
   {
-    std::cout << "Entrou aqui: " << &source << "  " << &message << std::endl;
     if (message.isController())
     {
-      if (message.getControllerNumber() == 0)
+      switch (message.getControllerNumber())
       {
-        metronome.startPlayer();
+      case 1:
+        mySamplerVoice.changeSelectedSample(0);
+        break;
+      case 2:
+        mySamplerVoice.changeSelectedSample(1);
+        break;
+      case 3:
+        mySamplerVoice.changeSelectedSample(2);
+        break;
+      case 9:
+        mySamplerVoice.changeSampleStart(message.getControllerValue());
+        break;
+      case 10:
+        mySamplerVoice.changeSampleLength(message.getControllerValue());
+        break;
+      case 20:
+        mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+        break;
+
+      default:
+        break;
       }
-      else
-      {
-        if (message.getControllerNumber() == 1)
-        {
-          metronome.stopPlayer();
-        }
-        else
-        {
-          if (message.getControllerNumber() == 4)
-          {
-            metronome.activateSample(2);
-          }
-        }
-      }
-      std::cout << "Is Controller: "
-                << "Number -> " << message.getControllerNumber() << " Value: " << message.getControllerValue() << std::endl;
     }
     else
     {
@@ -50,7 +53,8 @@ public:
   }
 
 private:
-  Metronome &metronome;
+  juce::Synthesiser &mySynth;
+  MySamplerVoice &mySamplerVoice;
   juce::AudioIODevice *device;
   juce::AudioSourceChannelInfo channelInfo;
   int count = 0;
@@ -89,10 +93,6 @@ public:
     // mySynth.getVoice(0)->startNote(40, 20, sound1, 20);
     // mySynth.getVoice(0)->renderNextBlock(outputBuffer, 0, outputBuffer.getNumSamples());
     mySamplerVoice.countSamples(outputBuffer, 0, outputBuffer.getNumSamples());
-    // juce::AudioSourceChannelInfo bufferToFill(&outputBuffer, 0, numSamples);
-    // bufferToFill.clearActiveBufferRegion();
-    // metronome.getNextAudioBlock(bufferToFill);
-    // metronome.playOneTime(outputBuffer);
   }
 
 private:
@@ -117,13 +117,13 @@ int main()
 {
 
   juce::AudioDeviceManager devmgr;
-  devmgr.initialiseWithDefaultDevices(0, 1);
+  devmgr.initialiseWithDefaultDevices(0, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
   int lengthInSamples[3] = {0, 0, 0};
-  std::string fileNames[3] = {"bass.wav", "closed-hi-hat.wav", "bass.wav"};
+  std::string fileNames[3] = {"mdp-kick-trance.wav", "closed-hi-hat.wav", "bass.wav"};
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
@@ -133,7 +133,7 @@ int main()
   mySynth.clearVoices();
   mySynth.clearSounds();
 
-  for (int i = 0; i < 1; i++)
+  for (int i = 0; i < 3; i++)
   {
     auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, fileNames[i]);
     jassert(mySamples[0].exists());
@@ -145,7 +145,7 @@ int main()
 
   MySamplerVoice myVoice(&mySynth, lengthInSamples);
 
-  for (int i = 0; i < 1; i++)
+  for (int i = 0; i < 3; i++)
   {
     mySynth.addVoice(&myVoice);
   }
@@ -153,7 +153,7 @@ int main()
   if (device && device->isOpen())
   {
     MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
-    MyMidiInputCallback midiInputCallback(metronome, device);
+    MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
     devmgr.addAudioCallback(&audioCallback);
 
     int lastInputIndex = 0;
@@ -170,6 +170,7 @@ int main()
 
     while (playAudio)
     {
+      // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       // Check if a key is pressed to stop audio playback
       if (keyPressed())
       {

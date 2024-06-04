@@ -4,15 +4,18 @@
 class MySamplerVoice : public juce::SamplerVoice
 {
 public:
-  MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples1) : mySynth(mySynth), lengthInSamples1(lengthInSamples1)
+  MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples) : mySynth(mySynth), lengthInSamples(lengthInSamples)
   {
     sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0};
     sequences[1] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     sequences[2] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+    sampleStart = new float[3]{0.0, 0.0, 0.0};
+    sampleLength = new float[3]{1, 1, 1};
+
     for (int i = 0; i < 3; i++)
     {
-      std::cout << "Sample lenght: " << i << " | " << lengthInSamples1[i] << std::endl;
+      std::cout << "Sample lenght: " << i << " | " << lengthInSamples[i] << std::endl;
     }
   }
 
@@ -46,14 +49,44 @@ public:
   void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
   void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
+  void changeSelectedSample(int sample)
+  {
+    *selectedSample = sample;
+  }
+
+  void changeSampleStart(int knobValue)
+  {
+    sampleStart[*selectedSample] = static_cast<float>(knobValue) / 127.0f;
+  }
+
+  void changeSampleLength(int knobValue)
+  {
+    sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f;
+  }
+
+  void changeLowPassFilter(double sampleRate, double knobValue)
+  {
+    juce::IIRCoefficients filterValue;
+    filterValue.makeHighPass(sampleRate, 7000);
+    lowPassFilter.setCoefficients(filterValue);
+    if (knobValue > 0)
+    {
+      activeLowPass[*selectedSample] = true;
+    }
+    else
+    {
+      activeLowPass[*selectedSample] = false;
+    }
+  }
 
   void renderNextBlock(juce::AudioBuffer<float> &buffer, int startSample, int numSamples) override
   {
   }
 
 private:
+  juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
-  int *lengthInSamples1;
+  int *lengthInSamples;
   int mSamplePosition = 0;
   int mTotalSamples{0};
   double mSampleRate{0};
@@ -67,5 +100,13 @@ private:
   std::vector<int> sequences[3];
   int samplesPosition[3] = {0, 0, 0};
   bool playingSamples[3] = {true, true, false};
-  juce::AudioBuffer<float> synthBuffer;
+  bool activeLowPass[3] = {false, false, false};
+  bool activeSample[3] = {false, false, false};
+  float sampleVelocity[3] = {0.6, 1.0, 0.5};
+  float *sampleStart;
+  float *sampleLength;
+  int *selectedSample = new int(0);
+  juce::IIRFilter lowPassFilter;
+  juce::IIRFilter highPassFilter;
+  juce::IIRFilter bandPassFilter;
 };
