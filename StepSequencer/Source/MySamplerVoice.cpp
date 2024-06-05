@@ -9,68 +9,54 @@
 */
 
 #include "MySamplerVoice.h"
-
 void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
+  std::cout << "Is Timer Running Before? " << isTimerRunning() << std::endl;
   mSampleRate = sampleRate;
   mUpdateInterval = (60.0 / (mBpm)*mSampleRate);
 
   mySynth->setCurrentPlaybackSampleRate(sampleRate);
+
+  std::cout << "Starting Timer..." << std::endl;
+  startTimer(1000 / ((mBpm / 60.f) * 4));
+  std::cout << "Is Timer Running After? " << isTimerRunning() << std::endl;
 }
 
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
   buffer.clear();
-  auto bufferSize = buffer.getNumSamples();
-  mTotalSamples += bufferSize;
-  mSamplesRemaining = mTotalSamples % mUpdateInterval;
+
   bool willPlay = false;
 
-  if ((mSamplesRemaining + bufferSize) >= mUpdateInterval)
+  // Check if any active sample is still playing or needs to be triggered
+  for (int i = 0; i < size; ++i)
   {
-    const auto timeToStartPlaying = mUpdateInterval - mSamplesRemaining;
-    for (auto sample = 0; sample < bufferSize; ++sample)
+    if (activeSample[i])
     {
-      if (sample == timeToStartPlaying)
-      {
-        checkSequence(buffer, startSample, numSamples);
-      }
+      willPlay = true;
+      break; // Exit loop early if at least one active sample is found
     }
   }
-  else
-  {
-    for (int i = 0; i < size; ++i)
-    {
-      if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) && samplesPosition[i] != lengthInSamples[i] * sampleLength[i])
-      {
-        willPlay = true;
-      }
-      else
-      {
-        activeSample[i] = false;
-      }
-    }
 
-    if (willPlay)
+  // Determine if any sample needs to be triggered based on its position
+  for (int i = 0; i < size; ++i)
+  {
+    if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) &&
+        samplesPosition[i] != lengthInSamples[i] * sampleLength[i])
     {
-      triggerSamples(buffer, startSample, numSamples);
+      willPlay = true;
+      break; // Exit loop early if at least one sample needs to be triggered
     }
+  }
+
+  if (willPlay)
+  {
+    triggerSamples(buffer, startSample, numSamples);
   }
 }
 
-void MySamplerVoice::checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
+void MySamplerVoice::updateSamplesActiveState()
 {
-  bool anySamplePlaying = false; // Flag to track if any sample is playing
-
-  if (currentSequenceIndex >= sequenceSize)
-  {
-    currentSequenceIndex = 0;
-    for (int i = 0; i < size; ++i)
-    {
-      samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
-    }
-  }
-
   for (int i = 0; i < size; ++i)
   {
     if (playingSamples[i])
@@ -79,7 +65,6 @@ void MySamplerVoice::checkSequence(juce::AudioBuffer<float> &buffer, int startSa
       {
         samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
         activeSample[i] = true;
-        anySamplePlaying = true;
       }
       else if (samplesPosition[i] == (0 + lengthInSamples[i] * sampleStart[i]))
       {
@@ -87,18 +72,28 @@ void MySamplerVoice::checkSequence(juce::AudioBuffer<float> &buffer, int startSa
       }
     }
   }
+}
+
+void MySamplerVoice::hiResTimerCallback()
+{
+  if (currentSequenceIndex >= sequenceSize)
+  {
+    currentSequenceIndex = 0;
+    resetSamplesPosition();
+  }
+
+  updateSamplesActiveState();
 
   currentSequenceIndex++;
-
-  if (anySamplePlaying)
-  {
-    triggerSamples(buffer, startSample, numSamples);
-  }
 }
 
 void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
   const juce::ScopedLock sl(objectLock);
+
+  // Prepare a batch buffer for processing all voices together
+  juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
+  batchBuffer.clear();
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
@@ -108,8 +103,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
       if (samplerSound != nullptr)
       {
-        const int totalSamples = lengthInSamples[voiceIndex] * sampleLength[voiceIndex]; // Total length of the sample
-
+        const int totalSamples = lengthInSamples[voiceIndex] * sampleLength[voiceIndex];
         int remainingSamples = totalSamples - samplesPosition[voiceIndex];
         int samplesToCopy = std::min(remainingSamples, numSamples);
 
@@ -117,56 +111,35 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         {
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
-            const float *audioData = samplerSound->getAudioData()->getReadPointer(channel);
-            buffer.setSample(channel, startSample + sample, audioData[samplesPosition[voiceIndex]] * sampleVelocity[voiceIndex]);
+            const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
+            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
+            batchBuffer.addSample(channel, startSample + sample, audioData[samplesPosition[voiceIndex]] * sampleVelocity[voiceIndex]);
           }
           ++samplesPosition[voiceIndex];
         }
 
         if (samplesPosition[voiceIndex] >= totalSamples)
         {
-          clearCurrentNote();
+          // Reset sample position
+          samplesPosition[voiceIndex] = 0;
+          // Deactivate the sample
+          activeSample[voiceIndex] = false;
         }
-
-        // for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        // {
-        //   if (activeLowPass[voiceIndex])
-        //   {
-        //     lowPassFilter.processSamples(buffer.getWritePointer(channel), numSamples);
-        //   }
-        // }
       }
     }
   }
+
+  // Mix the batch buffer into the output buffer for both channels
+  for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+  {
+    buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
+  }
 }
 
-// void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
-// {
-//   juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(0);
-//   juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
-//   int totalSamples = lengthInSamples[0]; // Total length of the sample
-//   if (samplesPosition[0] >= totalSamples)
-//   {
-//     buffer.clear(startSample, numSamples);
-//     return;
-//   }
-
-//   int remainingSamples = totalSamples - samplesPosition[0];
-
-//   int samplesToCopy = std::min(remainingSamples, numSamples);
-
-//   for (int sample = 0; sample < samplesToCopy; ++sample)
-//   {
-//     for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-//     {
-//       const float *audioData = samplerSound->getAudioData()->getReadPointer(channel);
-//       buffer.setSample(channel, startSample + sample, audioData[samplesPosition[0]]);
-//     }
-//     ++samplesPosition[0];
-//   }
-
-//   if (samplesPosition[0] >= totalSamples)
-//   {
-//     this->clearCurrentNote();
-//   }
-// }
+void MySamplerVoice::resetSamplesPosition()
+{
+  for (int i = 0; i < size; ++i)
+  {
+    samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
+  }
+}

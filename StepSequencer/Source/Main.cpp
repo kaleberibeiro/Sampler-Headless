@@ -93,6 +93,8 @@ public:
     // mySynth.getVoice(0)->startNote(40, 20, sound1, 20);
     // mySynth.getVoice(0)->renderNextBlock(outputBuffer, 0, outputBuffer.getNumSamples());
     mySamplerVoice.countSamples(outputBuffer, 0, outputBuffer.getNumSamples());
+    // mySynth.noteOn(0, 60, 0.6);
+    // mySynth.renderNextBlock(outputBuffer, midiBuffer, 0, outputBuffer.getNumSamples());
   }
 
 private:
@@ -140,7 +142,7 @@ int main()
     auto formatReader = mAudioFormatManager.createReaderFor(mySamples[0]);
     lengthInSamples[i] = formatReader->lengthInSamples;
 
-    mySynth.addSound(new juce::SamplerSound(fileNames[i], *formatReader, range, 60, 0.0, 0.0, 20.0));
+    mySynth.addSound(new juce::SamplerSound(fileNames[i], *formatReader, range, 60, 0.0, 0.0, 3.0));
   }
 
   MySamplerVoice myVoice(&mySynth, lengthInSamples);
