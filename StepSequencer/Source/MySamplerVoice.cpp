@@ -11,15 +11,47 @@
 #include "MySamplerVoice.h"
 void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
-  std::cout << "Is Timer Running Before? " << isTimerRunning() << std::endl;
   mSampleRate = sampleRate;
   mUpdateInterval = (60.0 / (mBpm)*mSampleRate);
 
   mySynth->setCurrentPlaybackSampleRate(sampleRate);
 
-  std::cout << "Starting Timer..." << std::endl;
+  // INITIALIZE ADSR SAMPLE RATE
+  for (int i = 0; i < size; i++)
+  {
+    adsrList[i].setSampleRate(sampleRate);
+  }
+  // INITIALIZE ADSR PARAMS
+  juce::ADSR::Parameters adsrParams;
+  adsrParams.attack = 0.0f;
+  adsrParams.sustain = 1.0f;
+  adsrParams.decay = 0.1f;
+  adsrParams.release = 0.1f;
+
+  for (int i = 0; i < size; i++)
+  {
+    adsrList[i].setParameters(adsrParams);
+  }
+
+  // INITIALIZE PROCESSSPEC
+  juce::dsp::ProcessSpec spec;
+  spec.sampleRate = sampleRate;
+  spec.maximumBlockSize = samplesPerBlockExpected;
+  spec.numChannels = 2;
+
+  // PREPARE IIR FILTER
+  for (int i = 0; i < size; i++)
+  {
+    lowPassFilters[i].prepare(spec);
+  }
+
+  for (int i = 0; i < size; i++)
+  {
+    auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 400.0f);
+    *lowPassFilters[i].coefficients = *newCoefficients;
+  }
+
   startTimer(1000 / ((mBpm / 60.f) * 4));
-  std::cout << "Is Timer Running After? " << isTimerRunning() << std::endl;
 }
 
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
@@ -42,7 +74,7 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   for (int i = 0; i < size; ++i)
   {
     if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) &&
-        samplesPosition[i] != lengthInSamples[i] * sampleLength[i])
+        samplesPosition[i] != lengthInSamples[i] * sampleLength[i] && playingSamples[i])
     {
       willPlay = true;
       break; // Exit loop early if at least one sample needs to be triggered
@@ -59,17 +91,14 @@ void MySamplerVoice::updateSamplesActiveState()
 {
   for (int i = 0; i < size; ++i)
   {
-    if (playingSamples[i])
+    if (sequences[i][currentSequenceIndex] == 1)
     {
-      if (sequences[i][currentSequenceIndex] == 1)
-      {
-        samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
-        activeSample[i] = true;
-      }
-      else if (samplesPosition[i] == (0 + lengthInSamples[i] * sampleStart[i]))
-      {
-        activeSample[i] = false;
-      }
+      samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
+      activeSample[i] = true;
+    }
+    else if (samplesPosition[i] == (0 + lengthInSamples[i] * sampleStart[i]))
+    {
+      activeSample[i] = false;
     }
   }
 }
@@ -79,7 +108,6 @@ void MySamplerVoice::hiResTimerCallback()
   if (currentSequenceIndex >= sequenceSize)
   {
     currentSequenceIndex = 0;
-    resetSamplesPosition();
   }
 
   updateSamplesActiveState();
@@ -97,7 +125,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
-    if (activeSample[voiceIndex])
+    if (activeSample[voiceIndex] && playingSamples[voiceIndex])
     {
       juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
       juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
@@ -107,15 +135,28 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         int remainingSamples = totalSamples - samplesPosition[voiceIndex];
         int samplesToCopy = std::min(remainingSamples, numSamples);
 
+        if (samplesPosition[voiceIndex] == 0)
+        {
+          adsrList[voiceIndex].reset();
+          adsrList[voiceIndex].noteOn();
+          lowPassFilters[voiceIndex].snapToZero();
+        }
+
         for (int sample = 0; sample < samplesToCopy; ++sample)
         {
+          float adsrValue = adsrList[voiceIndex].getNextSample();
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
             const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
             const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            batchBuffer.addSample(channel, startSample + sample, audioData[samplesPosition[voiceIndex]] * sampleVelocity[voiceIndex]);
+            batchBuffer.addSample(channel, startSample + sample, lowPassFilters[voiceIndex].processSample(audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]));
           }
           ++samplesPosition[voiceIndex];
+
+          if (samplesPosition[voiceIndex] == lengthInSamples[voiceIndex])
+          {
+            adsrList[voiceIndex].noteOff();
+          }
         }
 
         if (samplesPosition[voiceIndex] >= totalSamples)
@@ -129,17 +170,58 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
     }
   }
 
-  // Mix the batch buffer into the output buffer for both channels
   for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
   {
     buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
   }
 }
 
-void MySamplerVoice::resetSamplesPosition()
+void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
 {
-  for (int i = 0; i < size; ++i)
+
+  juce::ADSR::Parameters currentParams = adsrList[*selectedSample].getParameters();
+
+  switch (adsrParam)
   {
-    samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
+  case 25: // Attack
+    currentParams.attack = static_cast<float>(value) / 127.0f;
+    break;
+  case 26: // Decay
+    currentParams.decay = static_cast<float>(value) / 127.0f;
+    break;
+  case 27: // Sustain
+    currentParams.sustain = static_cast<float>(value) / 127.0f;
+    break;
+  case 28: // Release
+    currentParams.release = static_cast<float>(value) / 127.0f;
+    break;
+  default:
+    std::cout << "NÃO EXISTE ESTE VALOR" << std::endl;
+    return;
   }
+
+  adsrList[*selectedSample].setParameters(currentParams);
+}
+
+void MySamplerVoice::activateSample(int sample)
+{
+  if (playingSamples[sample] == true)
+  {
+    adsrList[sample].reset();
+    samplesPosition[sample] = 0;
+    activeSample[sample] = false;
+    playingSamples[sample] = !playingSamples[sample];
+  }
+  else
+  {
+    playingSamples[sample] = !playingSamples[sample];
+  }
+}
+
+void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
+{
+  double cutoffFrequency = 20.0 + (knobValue / 127.0) * (sampleRate / 7.0 - 20.0);
+  std::cout << "Cutoff Frequency: " << cutoffFrequency << " Hz" << std::endl; // Debug line
+  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, cutoffFrequency);
+  *lowPassFilters[*selectedSample].coefficients = *newCoefficients;
 }

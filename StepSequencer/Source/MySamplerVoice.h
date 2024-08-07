@@ -5,16 +5,16 @@ class MySamplerVoice : public juce::SamplerVoice, juce::HighResolutionTimer
 {
 public:
   MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples)
-      : mySynth(mySynth), lengthInSamples(lengthInSamples), sampleStart(3, 0.0f), sampleLength(3, 1.0f)
+      : mySynth(mySynth),
+        lengthInSamples(lengthInSamples),
+        sampleStart(4, 0.0f),
+        sampleLength(4, 1.0f),
+        adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()}
   {
     sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
     sequences[1] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     sequences[2] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    for (int i = 0; i < 3; ++i)
-    {
-      std::cout << "Sample length: " << i << " | " << lengthInSamples[i] << std::endl;
-    }
+    sequences[3] = {0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0};
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -31,12 +31,16 @@ public:
   void countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
+  void activateSample(int sample);
   void hiResTimerCallback() override;
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
   void changeSampleStart(int knobValue) { sampleStart[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
   void changeSampleLength(int knobValue) { sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
-  void changeLowPassFilter(double sampleRate, double knobValue){};
+  void changeAdsrValues(int knobValue, int adsrParam);
+  void changeLowPassFilter(double sampleRate, double knobValue);
+
+  std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
 private:
   juce::CriticalSection objectLock;
@@ -48,23 +52,18 @@ private:
   int mUpdateInterval{0};
   double mBpm{140.0};
   int mSamplesRemaining{0};
-  int currentIndexSequence{0};
   int currentSequenceIndex{0};
   int sequenceSize{16};
-  int size{3};
-  std::vector<int> sequences[3];
-  std::array<int, 3> samplesPosition = {0, 0, 0};
-  std::array<bool, 3> playingSamples = {true, true, true};
-  std::array<bool, 3> activeLowPass = {false, false, false};
-  std::array<bool, 3> activeSample = {false, false, false};
-  std::array<float, 3> sampleVelocity = {0.6, 0.6, 0.5};
+  int size{4};
+  std::vector<int> sequences[4];
+  std::array<int, 4> samplesPosition = {0, 0, 0, 0};
+  std::array<bool, 4> playingSamples = {false, false, false, false};
+  std::array<bool, 4> activeLowPass = {false, false, false, false};
+  std::array<bool, 4> activeSample = {false, false, false, false};
+  std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
-  std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
-  juce::IIRFilter lowPassFilter;
-  juce::IIRFilter highPassFilter;
-  juce::IIRFilter bandPassFilter;
-
-  void resetSamplesPosition();
+  std::array<juce::ADSR, 4> adsrList;
+  std::array<juce::dsp::IIR::Filter<float>, 4> lowPassFilters;
   void updateSamplesActiveState();
 };

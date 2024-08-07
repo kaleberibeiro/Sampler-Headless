@@ -20,14 +20,33 @@ public:
     {
       switch (message.getControllerNumber())
       {
-      case 1:
-        mySamplerVoice.changeSelectedSample(0);
-        break;
       case 2:
-        mySamplerVoice.changeSelectedSample(1);
+        mySamplerVoice.changeSelectedSample(0);
+        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 0)
+        {
+          mySamplerVoice.activateSample(0);
+        }
         break;
       case 3:
+        mySamplerVoice.changeSelectedSample(1);
+        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 1)
+        {
+          mySamplerVoice.activateSample(1);
+        }
+        break;
+      case 4:
         mySamplerVoice.changeSelectedSample(2);
+        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 2)
+        {
+          mySamplerVoice.activateSample(2);
+        }
+        break;
+      case 5:
+        mySamplerVoice.changeSelectedSample(3);
+        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 3)
+        {
+          mySamplerVoice.activateSample(3);
+        }
         break;
       case 9:
         mySamplerVoice.changeSampleStart(message.getControllerValue());
@@ -35,7 +54,19 @@ public:
       case 10:
         mySamplerVoice.changeSampleLength(message.getControllerValue());
         break;
-      case 20:
+      case 25:
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
+        break;
+      case 26:
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
+        break;
+      case 27:
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
+        break;
+      case 28:
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
+        break;
+      case 30:
         mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
         break;
 
@@ -48,6 +79,7 @@ public:
       if (message.isNoteOnOrOff())
       {
         std::cout << "Is Key: " << std::endl;
+        std::cout << "Key Values: " << message.getNoteNumber() << std::endl;
       }
     }
   }
@@ -124,8 +156,8 @@ int main()
   juce::Synthesiser mySynth;
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
-  int lengthInSamples[3] = {0, 0, 0};
-  std::string fileNames[3] = {"mdp-kick-trance.wav", "closed-hi-hat.wav", "bass.wav"};
+  int lengthInSamples[4] = {0, 0, 0, 0};
+  std::string fileNames[4] = {"mdp-kick-trance.wav", "closed-hi-hat.wav", "house-lead.wav", "dry-808-ride.wav"};
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
@@ -135,7 +167,7 @@ int main()
   mySynth.clearVoices();
   mySynth.clearSounds();
 
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 4; i++)
   {
     auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, fileNames[i]);
     jassert(mySamples[0].exists());
@@ -147,7 +179,7 @@ int main()
 
   MySamplerVoice myVoice(&mySynth, lengthInSamples);
 
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 4; i++)
   {
     mySynth.addVoice(&myVoice);
   }
