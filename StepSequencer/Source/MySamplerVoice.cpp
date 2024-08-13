@@ -43,12 +43,8 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   for (int i = 0; i < size; i++)
   {
     lowPassFilters[i].prepare(spec);
-  }
-
-  for (int i = 0; i < size; i++)
-  {
-    auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 400.0f);
-    *lowPassFilters[i].coefficients = *newCoefficients;
+    highPassFilters[i].prepare(spec);
+    bandPassFilters[i].prepare(spec);
   }
 
   startTimer(1000 / ((mBpm / 60.f) * 4));
@@ -140,6 +136,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           adsrList[voiceIndex].reset();
           adsrList[voiceIndex].noteOn();
           lowPassFilters[voiceIndex].snapToZero();
+          highPassFilters[voiceIndex].snapToZero();
+          bandPassFilters[voiceIndex].snapToZero();
         }
 
         for (int sample = 0; sample < samplesToCopy; ++sample)
@@ -149,7 +147,10 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           {
             const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
             const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            batchBuffer.addSample(channel, startSample + sample, lowPassFilters[voiceIndex].processSample(audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]));
+            float filteredSample = lowPassFilters[voiceIndex].processSample(audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]);
+            filteredSample = highPassFilters[voiceIndex].processSample(filteredSample);
+            filteredSample = bandPassFilters[voiceIndex].processSample(filteredSample);
+            batchBuffer.addSample(channel, startSample + sample, filteredSample);
           }
           ++samplesPosition[voiceIndex];
 
@@ -220,8 +221,27 @@ void MySamplerVoice::activateSample(int sample)
 
 void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
 {
-  double cutoffFrequency = 20.0 + (knobValue / 127.0) * (sampleRate / 7.0 - 20.0);
-  std::cout << "Cutoff Frequency: " << cutoffFrequency << " Hz" << std::endl; // Debug line
+  double minFreq = 100.0;
+  double maxFreq = 10000.0;
+  double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
   auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, cutoffFrequency);
   *lowPassFilters[*selectedSample].coefficients = *newCoefficients;
+}
+
+void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
+{
+  double minFreq = 20.0;
+  double maxFreq = 5000.0;
+  double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
+  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, cutoffFrequency);
+  *highPassFilters[*selectedSample].coefficients = *newCoefficients;
+}
+
+void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
+{
+  double minFreq = 500.0;
+  double maxFreq = 4000.0;
+  double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
+  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate, cutoffFrequency);
+  *bandPassFilters[*selectedSample].coefficients = *newCoefficients;
 }

@@ -69,6 +69,12 @@ public:
       case 30:
         mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
         break;
+      case 31:
+        mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+        break;
+      case 32:
+        mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+        break;
 
       default:
         break;

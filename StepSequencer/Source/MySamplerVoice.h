@@ -39,6 +39,8 @@ public:
   void changeSampleLength(int knobValue) { sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
   void changeAdsrValues(int knobValue, int adsrParam);
   void changeLowPassFilter(double sampleRate, double knobValue);
+  void changeHighPassFilter(double sampleRate, double knobValue);
+  void changeBandPassFilter(double sampleRate, double knobValue);
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
@@ -65,5 +67,7 @@ private:
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;
   std::array<juce::dsp::IIR::Filter<float>, 4> lowPassFilters;
+  std::array<juce::dsp::IIR::Filter<float>, 4> highPassFilters;
+  std::array<juce::dsp::IIR::Filter<float>, 4> bandPassFilters;
   void updateSamplesActiveState();
 };
