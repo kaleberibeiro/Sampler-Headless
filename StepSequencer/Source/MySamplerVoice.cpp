@@ -45,6 +45,17 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     lowPassFilters[i].prepare(spec);
     highPassFilters[i].prepare(spec);
     bandPassFilters[i].prepare(spec);
+
+    // REVERB SETUP //
+    reverbs[i].prepare(spec);
+    reverbs[i].setEnabled(false);
+
+    // CHORUS SETUP //
+    chorus[i].prepare(spec);
+    chorus[i].setCentreDelay(7.0);
+    chorus[i].setFeedback(0.3);
+    chorus[i].setDepth(0.1);
+    chorus[i].setMix(0.0);
   }
 
   startTimer(1000 / ((mBpm / 60.f) * 4));
@@ -121,6 +132,9 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
+    juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
+    sampleBuffer.clear();
+
     if (activeSample[voiceIndex] && playingSamples[voiceIndex])
     {
       juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
@@ -150,14 +164,27 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
             float filteredSample = lowPassFilters[voiceIndex].processSample(audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]);
             filteredSample = highPassFilters[voiceIndex].processSample(filteredSample);
             filteredSample = bandPassFilters[voiceIndex].processSample(filteredSample);
-            batchBuffer.addSample(channel, startSample + sample, filteredSample);
+            sampleBuffer.addSample(channel, startSample + sample, filteredSample);
           }
+
           ++samplesPosition[voiceIndex];
 
           if (samplesPosition[voiceIndex] == lengthInSamples[voiceIndex])
           {
             adsrList[voiceIndex].noteOff();
           }
+        }
+
+        ///// REVERB ////////
+        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
+        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+
+        reverbs[voiceIndex].process(context);
+        chorus[voiceIndex].process(context);
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+          batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
         }
 
         if (samplesPosition[voiceIndex] >= totalSamples)
@@ -244,4 +271,24 @@ void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
   double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
   auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate, cutoffFrequency);
   *bandPassFilters[*selectedSample].coefficients = *newCoefficients;
+}
+
+void MySamplerVoice::changeReverb(double knobValue)
+{
+  if (knobValue == 0)
+  {
+    reverbs[*selectedSample].setEnabled(false);
+  }
+  else
+  {
+    reverbs[*selectedSample].setEnabled(true);
+    juce::dsp::Reverb::Parameters revPrams;
+    revPrams.roomSize = static_cast<float>(knobValue) / 127.0f;
+    reverbs[*selectedSample].setParameters(revPrams);
+  }
+}
+
+void MySamplerVoice::changeChorus(double knobValue)
+{
+  chorus[*selectedSample].setMix(static_cast<float>(knobValue) / 127.0f);
 }

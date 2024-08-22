@@ -12,7 +12,7 @@ public:
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()}
   {
     sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
-    sequences[1] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    sequences[1] = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
     sequences[2] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     sequences[3] = {0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0};
   }
@@ -41,6 +41,8 @@ public:
   void changeLowPassFilter(double sampleRate, double knobValue);
   void changeHighPassFilter(double sampleRate, double knobValue);
   void changeBandPassFilter(double sampleRate, double knobValue);
+  void changeReverb(double knobValue);
+  void changeChorus(double knobValue);
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
@@ -62,12 +64,14 @@ private:
   std::array<bool, 4> playingSamples = {false, false, false, false};
   std::array<bool, 4> activeLowPass = {false, false, false, false};
   std::array<bool, 4> activeSample = {false, false, false, false};
-  std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
+  std::array<float, 4> sampleVelocity = {0.4, 0.6, 0.5, 0.8};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;
   std::array<juce::dsp::IIR::Filter<float>, 4> lowPassFilters;
   std::array<juce::dsp::IIR::Filter<float>, 4> highPassFilters;
   std::array<juce::dsp::IIR::Filter<float>, 4> bandPassFilters;
+  std::array<juce::dsp::Reverb, 4> reverbs;
+  std::array<juce::dsp::Chorus<float>, 4> chorus;
   void updateSamplesActiveState();
 };
