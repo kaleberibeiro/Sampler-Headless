@@ -70,25 +70,25 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   // Check if any active sample is still playing or needs to be triggered
   for (int i = 0; i < size; ++i)
   {
-    if (activeSample[i])
+    if (sampleMakeNoise[i] && sampleOn[i])
     {
-      std::cout << "Entrou aquiiiiii, sample ativo: " << i << " is actice? " << activeSample[i] << std::endl;
+      // std::cout << "Entrou aquiiiiii, sample ativo: " << i << " is actice? " << sampleMakeNoise[i] << std::endl;
       willPlay = true;
-      break; // Exit loop early if at least one active sample is found
+      break;
     }
   }
 
   // Determine if any sample needs to be triggered based on its position
-  for (int i = 0; i < size; ++i)
-  {
-    if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) &&
-        samplesPosition[i] != lengthInSamples[i] * sampleLength[i] && playingSamples[i])
-    {
-      std::cout << "Entrou aqui baixoooooo, sample ativo: " << i << std::endl;
-      willPlay = true;
-      break; // Exit loop early if at least one sample needs to be triggered
-    }
-  }
+  // for (int i = 0; i < size; ++i)
+  // {
+  //   if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) &&
+  //       samplesPosition[i] != lengthInSamples[i] * sampleLength[i] && sampleOn[i])
+  //   {
+  //     // std::cout << "Entrou aqui baixoooooo, sample ativo: " << i << std::endl;
+  //     willPlay = true;
+  //     break; // Exit loop early if at least one sample needs to be triggered
+  //   }
+  // }
 
   if (willPlay)
   {
@@ -100,17 +100,16 @@ void MySamplerVoice::updateSamplesActiveState()
 {
   for (int i = 0; i < size; ++i)
   {
-    if (sequences[i][currentSequenceIndex] == 1)
+    if (sequences[i][currentSequenceIndex] == 1 && sampleOn[i])
     {
       samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
-      activeSample[i] = true;
-      std::cout << "Activeeeeeeeeeeee: " << i << " " << currentSequenceIndex << std::endl;
+      sampleMakeNoise[i] = true;
     }
     else
     {
-      if (samplesPosition[i] == (0 + lengthInSamples[i] * sampleStart[i]))
+      if (samplesPosition[i] == (0 + lengthInSamples[i] * sampleStart[i]) || !sampleOn[i])
       {
-        activeSample[i] = false;
+        sampleMakeNoise[i] = false;
       }
     }
   }
@@ -141,7 +140,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
     juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
     sampleBuffer.clear();
 
-    if (activeSample[voiceIndex])
+    if (sampleMakeNoise[voiceIndex])
     {
       juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
       juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
@@ -151,7 +150,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         int remainingSamples = totalSamples - samplesPosition[voiceIndex];
         int samplesToCopy = std::min(remainingSamples, numSamples);
 
-        if (samplesPosition[voiceIndex] == 0 && playingSamples[voiceIndex])
+        if (samplesPosition[voiceIndex] == 0 && sampleMakeNoise[voiceIndex])
         {
           // Reset ADSR and filters only on the first playback
           adsrList[voiceIndex].reset();
@@ -180,7 +179,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           {
             // Signal the ADSR to start the release phase when reaching the end of the sample
             adsrList[voiceIndex].noteOff();
-            activeSample[voiceIndex] = false; // The sample finished playing
+            sampleMakeNoise[voiceIndex] = false; // The sample finished playing
           }
         }
 
@@ -235,35 +234,30 @@ void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
 
 void MySamplerVoice::activateSample(int sample)
 {
-  std::cout << "Is playing before?: " << playingSamples[sample] << std::endl;
-  std::cout << "Entrou no active sample: " << sample << std::endl;
   // If the sample is playing, gracefully stop it using ADSR
-  if (playingSamples[sample])
+  if (sampleOn[sample])
   {
     // Call noteOff to allow a smooth release phase
     adsrList[sample].noteOff();
     // Keep playing the sample until the release phase completes
-    activeSample[sample] = true;
-    playingSamples[sample] = false; // Indicate that no new note should be triggered
+    sampleOn[sample] = false;
   }
   else
   {
     // Activate the sample
-    playingSamples[sample] = true;
-    activeSample[sample] = true;
+    sampleOn[sample] = true;
     samplesPosition[sample] = 0;
     // Trigger the ADSR envelope
     adsrList[sample].reset();
-    // adsrList[sample].noteOn();
+    adsrList[sample].noteOn();
   }
-  std::cout << "Is playing after?: " << playingSamples[sample] << std::endl;
 }
 
 void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
 {
   double minFreq = 100.0;
   double maxFreq = 10000.0;
-  double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
+  double cutoffFrequency = maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
   auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, cutoffFrequency);
   *lowPassFilters[*selectedSample].coefficients = *newCoefficients;
 }

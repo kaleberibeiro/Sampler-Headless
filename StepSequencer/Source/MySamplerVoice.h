@@ -61,10 +61,9 @@ private:
   int size{4};
   std::vector<int> sequences[4];
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
-  std::array<bool, 4> playingSamples = {false, false, false, false};
-  std::array<bool, 4> activeLowPass = {false, false, false, false};
-  std::array<bool, 4> activeSample = {false, false, false, false};
-  std::array<float, 4> sampleVelocity = {0.8, 0.6, 0.5, 0.8};
+  std::array<bool, 4> sampleOn = {false, false, false, false};
+  std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
+std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;
