@@ -168,7 +168,7 @@ int main()
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
   int lengthInSamples[4] = {0, 0, 0, 0};
-  std::string fileNames[4] = {"mdp-kick-trance.wav", "snare.wav", "bass.wav", "dry-808-ride.wav"};
+  std::string fileNames[4] = {"hard-kick.wav", "snare.wav", "house-lead.wav", "dry-808-ride.wav"};
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
