@@ -42,9 +42,12 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   // PREPARE IIR FILTER
   for (int i = 0; i < size; i++)
   {
-    lowPassFilters[i].prepare(spec);
-    highPassFilters[i].prepare(spec);
-    bandPassFilters[i].prepare(spec);
+    duplicatorsLowPass[i].prepare(spec);
+    duplicatorsHighPass[i].prepare(spec);
+    duplicatorsBandPass[i].prepare(spec);
+    duplicatorsLowPass[i].reset();
+    duplicatorsHighPass[i].reset();
+    duplicatorsBandPass[i].reset();
 
     // REVERB SETUP //
     reverbs[i].prepare(spec);
@@ -76,18 +79,6 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
       break;
     }
   }
-
-  // Determine if any sample needs to be triggered based on its position
-  // for (int i = 0; i < size; ++i)
-  // {
-  //   if (samplesPosition[i] != (0 + lengthInSamples[i] * sampleStart[i]) &&
-  //       samplesPosition[i] != lengthInSamples[i] * sampleLength[i] && sampleOn[i])
-  //   {
-  //     // std::cout << "Entrou aqui baixoooooo, sample ativo: " << i << std::endl;
-  //     willPlay = true;
-  //     break; // Exit loop early if at least one sample needs to be triggered
-  //   }
-  // }
 
   if (willPlay)
   {
@@ -154,38 +145,53 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           // Reset ADSR and filters only on the first playback
           adsrList[voiceIndex].reset();
           adsrList[voiceIndex].noteOn();
-          lowPassFilters[voiceIndex].snapToZero();
-          highPassFilters[voiceIndex].snapToZero();
-          bandPassFilters[voiceIndex].snapToZero();
         }
 
         for (int sample = 0; sample < samplesToCopy; ++sample)
         {
-          float adsrValue = adsrList[voiceIndex].getNextSample();
-          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-          {
-            const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
-            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            float filteredSample = lowPassFilters[voiceIndex].processSample(audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]);
-            filteredSample = highPassFilters[voiceIndex].processSample(filteredSample);
-            filteredSample = bandPassFilters[voiceIndex].processSample(filteredSample);
-            sampleBuffer.addSample(channel, startSample + sample, filteredSample);
-          }
-
-          ++samplesPosition[voiceIndex];
-
+          // PRIMEIRO PASSO VER SE O SAMPLE ACABOU //
           if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
           {
             // Call noteOff to allow a smooth release phase
             adsrList[voiceIndex].noteOff();
           }
+
+          float adsrValue = adsrList[voiceIndex].getNextSample();
+          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+          {
+            const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
+            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
+            float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]);
+            sampleBuffer.addSample(channel, startSample + sample, finalSamples);
+          }
+
+          ++samplesPosition[voiceIndex];
         }
 
-        ///// REVERB ////////
+        ///// AUDIO BLOCK ////////
         juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
         juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
+        ///// IIR FILTERS ///////
+        if (smoothLowRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getCurrentValue());
+          duplicatorsLowPass[voiceIndex].process(context);
+        }
+        if (smoothHighRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getCurrentValue());
+          duplicatorsHighPass[voiceIndex].process(context);
+        }
+        if (smoothBandRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getCurrentValue());
+          duplicatorsBandPass[voiceIndex].process(context);
+        }
+
+        ///// REVERB ////////
         reverbs[voiceIndex].process(context);
+        ///// CHORUS ////////
         chorus[voiceIndex].process(context);
 
         // Add sample buffer to batch buffer
@@ -235,7 +241,10 @@ void MySamplerVoice::activateSample(int sample)
   // If the sample is playing, gracefully stop it using ADSR
   if (sampleOn[sample])
   {
+    // Trigger the release phase of the ADSR envelope
+    adsrList[sample].noteOff();
     sampleOn[sample] = false;
+    // Optional: Add logic to manage the release phase duration
   }
   else
   {
@@ -253,8 +262,7 @@ void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
   double minFreq = 100.0;
   double maxFreq = 10000.0;
   double cutoffFrequency = maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
-  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, cutoffFrequency);
-  *lowPassFilters[*selectedSample].coefficients = *newCoefficients;
+  smoothLowRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
 void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
@@ -262,17 +270,15 @@ void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
   double minFreq = 20.0;
   double maxFreq = 5000.0;
   double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
-  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, cutoffFrequency);
-  *highPassFilters[*selectedSample].coefficients = *newCoefficients;
+  smoothHighRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
 void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
 {
   double minFreq = 500.0;
   double maxFreq = 4000.0;
-  double cutoffFrequency = minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
-  auto newCoefficients = juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate, cutoffFrequency);
-  *bandPassFilters[*selectedSample].coefficients = *newCoefficients;
+  double cutoffFrequency = maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
+  smoothBandRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
 void MySamplerVoice::changeReverb(double knobValue)

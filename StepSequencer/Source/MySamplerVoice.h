@@ -49,6 +49,12 @@ public:
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothLowRamps;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothHighRamps;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothBandRamps;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsLowPass;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsHighPass;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsBandPass;
   int *lengthInSamples;
   int mSamplePosition = 0;
   int mTotalSamples{0};
@@ -63,13 +69,10 @@ private:
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
   std::array<bool, 4> sampleOn = {false, false, false, false};
   std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
-std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
+  std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;
-  std::array<juce::dsp::IIR::Filter<float>, 4> lowPassFilters;
-  std::array<juce::dsp::IIR::Filter<float>, 4> highPassFilters;
-  std::array<juce::dsp::IIR::Filter<float>, 4> bandPassFilters;
   std::array<juce::dsp::Reverb, 4> reverbs;
   std::array<juce::dsp::Chorus<float>, 4> chorus;
   void updateSamplesActiveState();
