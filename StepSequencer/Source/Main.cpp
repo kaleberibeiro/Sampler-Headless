@@ -81,6 +81,9 @@ public:
       case 34:
         mySamplerVoice.changeChorus(message.getControllerValue());
         break;
+      case 50:
+        mySamplerVoice.PlaySequence();
+        break;
       default:
         break;
       }

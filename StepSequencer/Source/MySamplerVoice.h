@@ -43,6 +43,10 @@ public:
   void changeBandPassFilter(double sampleRate, double knobValue);
   void changeReverb(double knobValue);
   void changeChorus(double knobValue);
+  void PlaySequence()
+  {
+    sequencePlaying = !sequencePlaying;
+  };
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
@@ -65,6 +69,7 @@ private:
   int currentSequenceIndex{0};
   int sequenceSize{16};
   int size{4};
+  bool sequencePlaying{false};
   std::vector<int> sequences[4];
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
   std::array<bool, 4> sampleOn = {false, false, false, false};

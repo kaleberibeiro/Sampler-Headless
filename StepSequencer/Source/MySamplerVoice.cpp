@@ -68,19 +68,7 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
 {
   buffer.clear();
 
-  bool willPlay = false;
-
-  // Check if any active sample is still playing or needs to be triggered
-  for (int i = 0; i < size; ++i)
-  {
-    if (sampleMakeNoise[i] && sampleOn[i])
-    {
-      willPlay = true;
-      break;
-    }
-  }
-
-  if (willPlay)
+  if (sequencePlaying)
   {
     triggerSamples(buffer, startSample, numSamples);
   }
@@ -107,14 +95,17 @@ void MySamplerVoice::updateSamplesActiveState()
 
 void MySamplerVoice::hiResTimerCallback()
 {
-  if (currentSequenceIndex >= sequenceSize)
+  if (sequencePlaying)
   {
-    currentSequenceIndex = 0;
+    if (currentSequenceIndex >= sequenceSize)
+    {
+      currentSequenceIndex = 0;
+    }
+
+    updateSamplesActiveState();
+
+    currentSequenceIndex++;
   }
-
-  updateSamplesActiveState();
-
-  currentSequenceIndex++;
 }
 
 void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
