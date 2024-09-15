@@ -18,89 +18,28 @@ public:
   {
     if (message.isController())
     {
-      switch (message.getControllerNumber())
+      // Handle the shift and sample select keys
+      handleShiftAndSampleSelect(message);
+
+      if (isShiftPressed)
       {
-      case 51:
-        mySamplerVoice.changeSelectedSample(0);
-        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 0)
-        {
-          mySamplerVoice.activateSample(0);
-        }
-        break;
-      case 53:
-        mySamplerVoice.changeSelectedSample(1);
-        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 1)
-        {
-          mySamplerVoice.activateSample(1);
-        }
-        break;
-      case 55:
-        mySamplerVoice.changeSelectedSample(2);
-        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 2)
-        {
-          mySamplerVoice.activateSample(2);
-        }
-        break;
-      case 57:
-        mySamplerVoice.changeSelectedSample(3);
-        if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 3)
-        {
-          mySamplerVoice.activateSample(3);
-        }
-        break;
-      case 0:
-        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
-        break;
-      case 1:
-        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
-        break;
-      case 2:
-        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
-        break;
-      case 3:
-        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
-        break;
-      case 90:
-        mySamplerVoice.changeSampleStart(message.getControllerValue());
-        break;
-      case 100:
-        mySamplerVoice.changeSampleLength(message.getControllerValue());
-        break;
-      case 8:
-        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
-        break;
-      case 9:
-        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
-        break;
-      case 10:
-        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
-        break;
-      case 11:
-        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
-        break;
-      case 12:
-        mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
-        break;
-      case 13:
-        mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
-        break;
-      case 14:
-        mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
-        break;
-      case 15:
-        mySamplerVoice.changeReverb(message.getControllerValue());
-        break;
-      case 16:
-        mySamplerVoice.changeChorus(message.getControllerValue());
-        break;
-      case 43:
-        mySamplerVoice.PlaySequence();
-        break;
-      default:
-        break;
+        // Activate samples when Shift (key 45) is pressed
+        activateSample(message);
       }
-      std::cout << "Not Key: " << message.getControllerNumber() << std::endl;
-      std::cout << "Not Key value: " << message.getControllerValue() << std::endl;
+      else if (isSampleSelectedPressed)
+      {
+        // Select samples when Sample Select (key 46) is pressed
+        selectSample(message);
+      }
+      else
+      {
+        // Handle other controller changes
+        handleOtherControllers(message);
+      }
+
+      // Logging for debugging
+      std::cout << "Controller Number: " << message.getControllerNumber() << std::endl;
+      std::cout << "Controller Value: " << message.getControllerValue() << std::endl;
     }
   }
 
@@ -110,6 +49,107 @@ private:
   juce::AudioIODevice *device;
   juce::AudioSourceChannelInfo channelInfo;
   int count = 0;
+  bool isShiftPressed = false;
+  bool isSampleSelectedPressed = false;
+
+  void handleShiftAndSampleSelect(const juce::MidiMessage &message)
+  {
+    if (message.getControllerNumber() == 45)
+    {
+      isShiftPressed = (message.getControllerValue() == 127);
+    }
+    else if (message.getControllerNumber() == 46)
+    {
+      isSampleSelectedPressed = (message.getControllerValue() == 127);
+    }
+  }
+
+  void activateSample(const juce::MidiMessage &message)
+  {
+    switch (message.getControllerNumber())
+    {
+    case 51:
+      mySamplerVoice.activateSample(0);
+      break;
+    case 53:
+      mySamplerVoice.activateSample(1);
+      break;
+    case 55:
+      mySamplerVoice.activateSample(2);
+      break;
+    case 57:
+      mySamplerVoice.activateSample(3);
+      break;
+    }
+  }
+
+  void selectSample(const juce::MidiMessage &message)
+  {
+    switch (message.getControllerNumber())
+    {
+    case 51:
+      mySamplerVoice.changeSelectedSample(0);
+      break;
+    case 53:
+      mySamplerVoice.changeSelectedSample(1);
+      break;
+    case 55:
+      mySamplerVoice.changeSelectedSample(2);
+      break;
+    case 57:
+      mySamplerVoice.changeSelectedSample(3);
+      break;
+    }
+  }
+
+  void handleOtherControllers(const juce::MidiMessage &message)
+  {
+    switch (message.getControllerNumber())
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+      break;
+    case 8:
+      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
+      break;
+    case 9:
+      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
+      break;
+    case 10:
+      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
+      break;
+    case 11:
+      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
+      break;
+    case 12:
+      mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      break;
+    case 13:
+      mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      break;
+    case 14:
+      mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      break;
+    case 15:
+      mySamplerVoice.changeReverb(message.getControllerValue());
+      break;
+    case 16:
+      mySamplerVoice.changeChorus(message.getControllerValue());
+      break;
+    case 43:
+      mySamplerVoice.PlaySequence();
+      break;
+    case 90:
+      mySamplerVoice.changeSampleStart(message.getControllerValue());
+      break;
+    case 100:
+      mySamplerVoice.changeSampleLength(message.getControllerValue());
+      break;
+    }
+  }
 };
 
 class MyAudioIODeviceCallback : public juce::AudioIODeviceCallback
