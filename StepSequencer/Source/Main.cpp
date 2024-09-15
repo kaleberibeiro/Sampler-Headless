@@ -31,12 +31,16 @@ public:
         // Select samples when Sample Select (key 46) is pressed
         selectSample(message);
       }
+      else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 66)
+      {
+        // Call updateSampleIndex for controllers 51 to 66
+        mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
+      }
       else
       {
         // Handle other controller changes
         handleOtherControllers(message);
       }
-
       // Logging for debugging
       std::cout << "Controller Number: " << message.getControllerNumber() << std::endl;
       std::cout << "Controller Value: " << message.getControllerValue() << std::endl;

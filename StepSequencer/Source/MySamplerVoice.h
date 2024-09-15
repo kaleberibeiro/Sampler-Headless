@@ -57,6 +57,18 @@ public:
     sampleVelocity[sample] = static_cast<float>(knobValue) / 127.0f;
   };
 
+  void updateSampleIndex(int indexPosition, int padValue)
+  {
+    if (padValue == 0)
+    {
+      sequences[*selectedSample][indexPosition] = 0;
+    }
+    else
+    {
+      sequences[*selectedSample][indexPosition] = 1;
+    }
+  };
+
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
 private:
