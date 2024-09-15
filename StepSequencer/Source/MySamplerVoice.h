@@ -46,6 +46,15 @@ public:
   void PlaySequence()
   {
     sequencePlaying = !sequencePlaying;
+    currentSequenceIndex = 0;
+    for (int i = 0; i < size; i++)
+    {
+      samplesPosition[i] = 0;
+    }
+  };
+  void changeSampleVelocity(int sample, float knobValue)
+  {
+    sampleVelocity[sample] = static_cast<float>(knobValue) / 127.0f;
   };
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
@@ -74,7 +83,7 @@ private:
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
   std::array<bool, 4> sampleOn = {false, false, false, false};
   std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
-  std::array<float, 4> sampleVelocity = {0.6, 0.6, 0.5, 0.8};
+  std::array<float, 4> sampleVelocity = {0.5, 0.5, 0.5, 0.5};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;

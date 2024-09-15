@@ -20,81 +20,87 @@ public:
     {
       switch (message.getControllerNumber())
       {
-      case 2:
+      case 51:
         mySamplerVoice.changeSelectedSample(0);
         if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 0)
         {
           mySamplerVoice.activateSample(0);
         }
         break;
-      case 3:
+      case 53:
         mySamplerVoice.changeSelectedSample(1);
         if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 1)
         {
           mySamplerVoice.activateSample(1);
         }
         break;
-      case 4:
+      case 55:
         mySamplerVoice.changeSelectedSample(2);
         if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 2)
         {
           mySamplerVoice.activateSample(2);
         }
         break;
-      case 5:
+      case 57:
         mySamplerVoice.changeSelectedSample(3);
         if (mySamplerVoice.selectedSample && *(mySamplerVoice.selectedSample) == 3)
         {
           mySamplerVoice.activateSample(3);
         }
         break;
-      case 9:
+      case 0:
+        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+        break;
+      case 1:
+        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+        break;
+      case 2:
+        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+        break;
+      case 3:
+        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+        break;
+      case 90:
         mySamplerVoice.changeSampleStart(message.getControllerValue());
         break;
-      case 10:
+      case 100:
         mySamplerVoice.changeSampleLength(message.getControllerValue());
         break;
-      case 25:
+      case 8:
         mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
         break;
-      case 26:
+      case 9:
         mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
         break;
-      case 27:
+      case 10:
         mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
         break;
-      case 28:
+      case 11:
         mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
         break;
-      case 30:
+      case 12:
         mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
         break;
-      case 31:
+      case 13:
         mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
         break;
-      case 32:
+      case 14:
         mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
         break;
-      case 33:
+      case 15:
         mySamplerVoice.changeReverb(message.getControllerValue());
         break;
-      case 34:
+      case 16:
         mySamplerVoice.changeChorus(message.getControllerValue());
         break;
-      case 50:
+      case 43:
         mySamplerVoice.PlaySequence();
         break;
       default:
         break;
       }
-    }
-    else
-    {
-      if (message.isNoteOnOrOff())
-      {
-        std::cout << "Is Key: " << std::endl;
-        std::cout << "Key Values: " << message.getNoteNumber() << std::endl;
-      }
+      std::cout << "Not Key: " << message.getControllerNumber() << std::endl;
+      std::cout << "Not Key value: " << message.getControllerValue() << std::endl;
     }
   }
 
@@ -208,12 +214,22 @@ int main()
     auto list = juce::MidiInput::getAvailableDevices();
     auto midiInputs = juce::MidiInput::getAvailableDevices();
 
-    auto newInput = midiInputs[0];
+    for (int i = 0; i < midiInputs.size(); i++)
+    {
+      std::cout << "MIDI IDENTIFIER: " << midiInputs[i].identifier << std::endl;
+      std::cout << "MIDI NAME: " << midiInputs[i].name << std::endl;
+    }
 
-    if (!devmgr.isMidiInputDeviceEnabled(newInput.identifier))
-      devmgr.setMidiInputDeviceEnabled(newInput.identifier, true);
+    auto nanoPad = midiInputs[1];
+    auto nanoKontrol = midiInputs[2];
 
-    devmgr.addMidiInputDeviceCallback(newInput.identifier, &midiInputCallback);
+    if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
+      devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
+    if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
+      devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
+
+    devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
+    devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
     bool playAudio = true;
 
     while (playAudio)
