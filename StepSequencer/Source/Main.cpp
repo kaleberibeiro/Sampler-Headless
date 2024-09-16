@@ -19,7 +19,7 @@ public:
     if (message.isController())
     {
       // Handle the shift and sample select keys
-      handleShiftAndSampleSelect(message);
+      handleMomentaryBtn(message);
 
       if (isShiftPressed)
       {
@@ -55,9 +55,19 @@ private:
   int count = 0;
   bool isShiftPressed = false;
   bool isSampleSelectedPressed = false;
+  bool momentaryBtnStates[8] = {false};
+  const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
 
-  void handleShiftAndSampleSelect(const juce::MidiMessage &message)
+  void handleMomentaryBtn(const juce::MidiMessage &message)
   {
+    for (int i = 0; i < 8; ++i)
+    {
+      if (message.getControllerNumber() == momentaryBtnIndices[i])
+      {
+        momentaryBtnStates[i] = (message.getControllerValue() == 127); // Button is pressed when value is 127
+      }
+    }
+
     if (message.getControllerNumber() == 45)
     {
       isShiftPressed = (message.getControllerValue() == 127);
@@ -75,13 +85,13 @@ private:
     case 51:
       mySamplerVoice.activateSample(0);
       break;
-    case 53:
+    case 52:
       mySamplerVoice.activateSample(1);
       break;
-    case 55:
+    case 53:
       mySamplerVoice.activateSample(2);
       break;
-    case 57:
+    case 54:
       mySamplerVoice.activateSample(3);
       break;
     }
@@ -94,13 +104,13 @@ private:
     case 51:
       mySamplerVoice.changeSelectedSample(0);
       break;
-    case 53:
+    case 52:
       mySamplerVoice.changeSelectedSample(1);
       break;
-    case 55:
+    case 53:
       mySamplerVoice.changeSelectedSample(2);
       break;
-    case 57:
+    case 54:
       mySamplerVoice.changeSelectedSample(3);
       break;
     }
@@ -114,7 +124,14 @@ private:
     case 1:
     case 2:
     case 3:
-      mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+      if (momentaryBtnStates[message.getControllerNumber()])
+      {
+        mySamplerVoice.changePitchShift(message.getControllerNumber(), message.getControllerValue());
+      }
+      else
+      {
+        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
+      }
       break;
     case 8:
       mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
@@ -221,7 +238,7 @@ int main()
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
   int lengthInSamples[4] = {0, 0, 0, 0};
-  std::string fileNames[4] = {"hard-kick.wav", "snare.wav", "house-lead.wav", "dry-808-ride.wav"};
+  std::string fileNames[4] = {"mdp-kick-trance.wav", "snare.wav", "bass.wav", "dry-808-ride.wav"};
   juce::BigInteger range;
   range.setRange(0, 128, true);
 

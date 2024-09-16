@@ -42,6 +42,9 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   // PREPARE IIR FILTER
   for (int i = 0; i < size; i++)
   {
+    smoothGainRamp[i].reset(sampleRate, 0.01);
+    smoothGainRamp[i].setTargetValue(0.5);
+
     duplicatorsLowPass[i].prepare(spec);
     duplicatorsHighPass[i].prepare(spec);
     duplicatorsBandPass[i].prepare(spec);
@@ -152,7 +155,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           {
             const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
             const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * sampleVelocity[voiceIndex]);
+            float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
             sampleBuffer.addSample(channel, startSample + sample, finalSamples);
           }
 
@@ -281,9 +284,21 @@ void MySamplerVoice::changeReverb(double knobValue)
   else
   {
     reverbs[*selectedSample].setEnabled(true);
-    juce::dsp::Reverb::Parameters revPrams;
-    revPrams.roomSize = static_cast<float>(knobValue) / 127.0f;
-    reverbs[*selectedSample].setParameters(revPrams);
+
+    juce::dsp::Reverb::Parameters revParams;
+
+    // Map knobValue from 0-127 to 0.0-1.0
+    float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+
+    // Adjusting the parameters for more natural reverb
+    revParams.roomSize = juce::jlimit(0.1f, 0.9f, normalizedValue);       // Room Size (0.1 to 0.9 for more natural effect)
+    revParams.damping = juce::jlimit(0.1f, 0.7f, normalizedValue * 0.5f); // Damping (0.1 to 0.7)
+    revParams.width = juce::jlimit(0.2f, 1.0f, normalizedValue);          // Width (0.2 to 1.0 for wider stereo image)
+    revParams.wetLevel = juce::jlimit(0.1f, 0.9f, normalizedValue);
+    revParams.dryLevel = 1.0;      
+    revParams.freezeMode = 0.0f;                                          // Disabled
+
+    reverbs[*selectedSample].setParameters(revParams);
   }
 }
 

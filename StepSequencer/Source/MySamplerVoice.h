@@ -43,6 +43,13 @@ public:
   void changeBandPassFilter(double sampleRate, double knobValue);
   void changeReverb(double knobValue);
   void changeChorus(double knobValue);
+  void changePitchShift(int sampleIndex, int knobValue)
+  {
+    float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
+    pitchShiftFactors[sampleIndex] = pitchShift;
+    interpolators[sampleIndex].reset();
+  }
+
   void PlaySequence()
   {
     sequencePlaying = !sequencePlaying;
@@ -52,9 +59,9 @@ public:
       samplesPosition[i] = 0;
     }
   };
-  void changeSampleVelocity(int sample, float knobValue)
+  void changeSampleVelocity(int sampleIndex, int knobValue)
   {
-    sampleVelocity[sample] = static_cast<float>(knobValue) / 127.0f;
+    smoothGainRamp[sampleIndex].setTargetValue(static_cast<float>(knobValue) / 127.0f);
   };
 
   void updateSampleIndex(int indexPosition, int padValue)
@@ -74,6 +81,7 @@ public:
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothGainRamp;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothLowRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothHighRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothBandRamps;
@@ -95,11 +103,12 @@ private:
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
   std::array<bool, 4> sampleOn = {false, false, false, false};
   std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
-  std::array<float, 4> sampleVelocity = {0.5, 0.5, 0.5, 0.5};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;
   std::array<juce::dsp::Reverb, 4> reverbs;
   std::array<juce::dsp::Chorus<float>, 4> chorus;
+  std::array<juce::LinearInterpolator, 4> interpolators;
+  std::array<float, 4> pitchShiftFactors = {1.0, 1.0, 1.0, 1.0};
   void updateSamplesActiveState();
 };
