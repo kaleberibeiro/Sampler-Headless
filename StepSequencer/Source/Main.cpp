@@ -36,14 +36,18 @@ public:
         // Call updateSampleIndex for controllers 51 to 66
         mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
       }
+      else if (message.getControllerNumber() >= 67 && message.getControllerNumber() <= 74)
+      {
+        mySamplerVoice.playSample(message.getControllerNumber() - 67, message.getControllerValue());
+      }
       else
       {
         // Handle other controller changes
         handleOtherControllers(message);
       }
       // Logging for debugging
-      std::cout << "Controller Number: " << message.getControllerNumber() << std::endl;
-      std::cout << "Controller Value: " << message.getControllerValue() << std::endl;
+      // std::cout << "Controller Number: " << message.getControllerNumber() << std::endl;
+      // std::cout << "Controller Value: " << message.getControllerValue() << std::endl;
     }
   }
 
@@ -161,7 +165,14 @@ private:
       mySamplerVoice.changeChorus(message.getControllerValue());
       break;
     case 43:
-      mySamplerVoice.PlaySequence();
+      if (message.getControllerValue() == 0)
+      {
+        mySamplerVoice.stopSequence();
+      }
+      else
+      {
+        mySamplerVoice.playSequence();
+      }
       break;
     case 90:
       mySamplerVoice.changeSampleStart(message.getControllerValue());
@@ -201,13 +212,8 @@ public:
     // Create AudioBuffer objects for input and output
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
     juce::MidiBuffer midiBuffer;
-    // mySynth.renderNextBlock(outputBuffer, midiBuffer, 0, outputBuffer.getNumSamples());
-    // juce::SynthesiserSound *sound1 = mySynth.getSound(0).get();
-    // mySynth.getVoice(0)->startNote(40, 20, sound1, 20);
-    // mySynth.getVoice(0)->renderNextBlock(outputBuffer, 0, outputBuffer.getNumSamples());
+
     mySamplerVoice.countSamples(outputBuffer, 0, outputBuffer.getNumSamples());
-    // mySynth.noteOn(0, 60, 0.6);
-    // mySynth.renderNextBlock(outputBuffer, midiBuffer, 0, outputBuffer.getNumSamples());
   }
 
 private:

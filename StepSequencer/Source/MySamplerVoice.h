@@ -33,6 +33,19 @@ public:
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void activateSample(int sample);
   void hiResTimerCallback() override;
+  void playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
+  void playSample(int sampleIndex, int sampleCommand)
+  {
+    if (sampleCommand == 127)
+    {
+      samplesPressed[sampleIndex] = true;
+    }
+    else
+    {
+      samplesPressed[sampleIndex] = false;
+      samplesPosition[sampleIndex] = 0;
+    }
+  }
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
   void changeSampleStart(int knobValue) { sampleStart[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
@@ -50,15 +63,26 @@ public:
     interpolators[sampleIndex].reset();
   }
 
-  void PlaySequence()
+  void playSequence()
   {
-    sequencePlaying = !sequencePlaying;
+    sequencePlaying = true;
+    startTimer(1000 / ((mBpm / 60.f) * 4));
+  };
+
+  void stopSequence()
+  {
+    stopTimer();
+    sequencePlaying = false;
     currentSequenceIndex = 0;
+
     for (int i = 0; i < size; i++)
     {
       samplesPosition[i] = 0;
+      sampleMakeNoise[i] = false;
+      adsrList[i].noteOff();
     }
   };
+  
   void changeSampleVelocity(int sampleIndex, int knobValue)
   {
     smoothGainRamp[sampleIndex].setTargetValue(static_cast<float>(knobValue) / 127.0f);
@@ -103,6 +127,8 @@ private:
   std::array<int, 4> samplesPosition = {0, 0, 0, 0};
   std::array<bool, 4> sampleOn = {false, false, false, false};
   std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
+  std::array<bool, 4> samplesPressed = {false};
+  std::array<bool, 4> isInReleasePhase = {false};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 4> adsrList;

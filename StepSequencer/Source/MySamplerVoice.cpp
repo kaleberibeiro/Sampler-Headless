@@ -63,8 +63,6 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     chorus[i].setDepth(0.1);
     chorus[i].setMix(0.0);
   }
-
-  startTimer(1000 / ((mBpm / 60.f) * 4));
 }
 
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
@@ -74,6 +72,10 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   if (sequencePlaying)
   {
     triggerSamples(buffer, startSample, numSamples);
+  }
+  else
+  {
+    playSampleProcess(buffer, startSample, numSamples);
   }
 }
 
@@ -130,10 +132,6 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
       if (samplerSound != nullptr)
       {
-        const int totalSamples = lengthInSamples[voiceIndex] * sampleLength[voiceIndex];
-        int remainingSamples = totalSamples - samplesPosition[voiceIndex];
-        int samplesToCopy = std::min(remainingSamples, numSamples);
-
         if (samplesPosition[voiceIndex] == 0 && sampleMakeNoise[voiceIndex])
         {
           // Reset ADSR and filters only on the first playback
@@ -141,15 +139,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           adsrList[voiceIndex].noteOn();
         }
 
-        for (int sample = 0; sample < samplesToCopy; ++sample)
+        for (int sample = 0; sample < numSamples; ++sample)
         {
-          // PRIMEIRO PASSO VER SE O SAMPLE ACABOU //
-          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
-          {
-            // Call noteOff to allow a smooth release phase
-            adsrList[voiceIndex].noteOff();
-          }
-
           float adsrValue = adsrList[voiceIndex].getNextSample();
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
@@ -159,7 +150,104 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
             sampleBuffer.addSample(channel, startSample + sample, finalSamples);
           }
 
-          ++samplesPosition[voiceIndex];
+          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
+          {
+            adsrList[voiceIndex].noteOff();
+          }
+          else
+          {
+            ++samplesPosition[voiceIndex];
+          }
+        }
+
+        ///// AUDIO BLOCK ////////
+        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
+        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+
+        ///// IIR FILTERS ///////
+        if (smoothLowRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getCurrentValue());
+          duplicatorsLowPass[voiceIndex].process(context);
+        }
+        if (smoothHighRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getCurrentValue());
+          duplicatorsHighPass[voiceIndex].process(context);
+        }
+        if (smoothBandRamps[voiceIndex].getCurrentValue() > 0)
+        {
+          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getCurrentValue());
+          duplicatorsBandPass[voiceIndex].process(context);
+        }
+
+        ///// REVERB ////////
+        reverbs[voiceIndex].process(context);
+        ///// CHORUS ////////
+        chorus[voiceIndex].process(context);
+
+        // Add sample buffer to batch buffer
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+          batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
+        }
+      }
+    }
+  }
+
+  for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+  {
+    buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
+  }
+}
+
+void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
+{
+  const juce::ScopedLock sl(objectLock);
+
+  // Prepare a batch buffer for processing all voices together
+  juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
+  batchBuffer.clear();
+
+  for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
+  {
+    juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
+    sampleBuffer.clear();
+
+    if (samplesPressed[voiceIndex])
+    {
+      juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
+      juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
+      if (samplerSound != nullptr)
+      {
+        if (samplesPosition[voiceIndex] == 0 && samplesPressed[voiceIndex])
+        {
+          // Reset ADSR and filters only on the first playback
+          adsrList[voiceIndex].reset();
+          adsrList[voiceIndex].noteOn();
+        }
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+          // PRIMEIRO PASSO VER SE O SAMPLE ACABOU //
+          float adsrValue = adsrList[voiceIndex].getNextSample();
+          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+          {
+            const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
+            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
+            float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
+            sampleBuffer.addSample(channel, startSample + sample, finalSamples);
+          }
+
+          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
+          {
+            adsrList[voiceIndex].noteOff();
+            isInReleasePhase[voiceIndex] = true;
+          }
+          else
+          {
+            ++samplesPosition[voiceIndex];
+          }
         }
 
         ///// AUDIO BLOCK ////////
@@ -295,8 +383,8 @@ void MySamplerVoice::changeReverb(double knobValue)
     revParams.damping = juce::jlimit(0.1f, 0.7f, normalizedValue * 0.5f); // Damping (0.1 to 0.7)
     revParams.width = juce::jlimit(0.2f, 1.0f, normalizedValue);          // Width (0.2 to 1.0 for wider stereo image)
     revParams.wetLevel = juce::jlimit(0.1f, 0.9f, normalizedValue);
-    revParams.dryLevel = 1.0;      
-    revParams.freezeMode = 0.0f;                                          // Disabled
+    revParams.dryLevel = 1.0;
+    revParams.freezeMode = 0.0f; // Disabled
 
     reverbs[*selectedSample].setParameters(revParams);
   }
