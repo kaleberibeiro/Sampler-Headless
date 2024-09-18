@@ -82,10 +82,11 @@ public:
       adsrList[i].noteOff();
     }
   };
-  
+
   void changeSampleVelocity(int sampleIndex, int knobValue)
   {
     smoothGainRamp[sampleIndex].setTargetValue(static_cast<float>(knobValue) / 127.0f);
+    previousGain[sampleIndex] = static_cast<float>(knobValue) / 127.0f;
   };
 
   void updateSampleIndex(int indexPosition, int padValue)
@@ -105,6 +106,7 @@ public:
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
+  std::array<float, 4> previousGain;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothGainRamp;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothLowRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothHighRamps;
