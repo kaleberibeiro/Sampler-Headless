@@ -7,7 +7,7 @@ public:
   MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples)
       : mySynth(mySynth),
         lengthInSamples(lengthInSamples),
-        sampleStart(8, 0.0f),
+        sampleStart(8, 0),
         sampleLength(8, 1.0f),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()}
   {
@@ -52,7 +52,12 @@ public:
   }
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
-  void changeSampleStart(int knobValue) { sampleStart[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
+  void changeSampleStart(int knobValue)
+  {
+    int scaledStart = static_cast<int>(static_cast<float>(knobValue) / 127.0f * lengthInSamples[*selectedSample]);
+
+    sampleStart[*selectedSample] = scaledStart;
+  }
   void changeSampleLength(int knobValue) { sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
   void changeAdsrValues(int knobValue, int adsrParam);
   void changeLowPassFilter(double sampleRate, double knobValue);
@@ -128,7 +133,7 @@ private:
   std::array<bool, 8> sampleMakeNoise = {false};
   std::array<bool, 8> samplesPressed = {false};
   std::array<bool, 8> isInReleasePhase = {false};
-  std::vector<float> sampleStart;
+  std::vector<int> sampleStart;
   std::vector<float> sampleLength;
   std::array<juce::ADSR, 8> adsrList;
   std::array<juce::dsp::Reverb, 8> reverbs;

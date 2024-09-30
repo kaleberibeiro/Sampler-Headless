@@ -86,12 +86,14 @@ void MySamplerVoice::updateSamplesActiveState()
   {
     if (sequences[i][currentSequenceIndex] == 1 && sampleOn[i])
     {
-      samplesPosition[i] = (0 + lengthInSamples[i] * sampleStart[i]);
+      samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
+      adsrList[i].reset();
+      adsrList[i].noteOn();
     }
     else
     {
-      if (!sampleOn[i])
+      if (sampleOn[i] == false)
       {
         sampleMakeNoise[i] = false;
       }
@@ -131,7 +133,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
     juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
     if (samplerSound != nullptr)
     {
-      if (samplesPosition[voiceIndex] == 0 + lengthInSamples[voiceIndex] * sampleStart[voiceIndex])
+      if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
       {
         // Reset ADSR and filters only on the first playback
         adsrList[voiceIndex].reset();
@@ -162,7 +164,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         {
           if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
           {
-            adsrList[voiceIndex].noteOff(); // Start note release phase
+            adsrList[voiceIndex].noteOff();
           }
           else
           {
