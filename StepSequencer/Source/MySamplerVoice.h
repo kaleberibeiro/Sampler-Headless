@@ -7,14 +7,18 @@ public:
   MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples)
       : mySynth(mySynth),
         lengthInSamples(lengthInSamples),
-        sampleStart(4, 0.0f),
-        sampleLength(4, 1.0f),
+        sampleStart(8, 0.0f),
+        sampleLength(8, 1.0f),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()}
   {
-    sequences[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
-    sequences[1] = {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0};
-    sequences[2] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[3] = {0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0};
+    sequences[0] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[2] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[4] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[5] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[6] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sequences[7] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -91,14 +95,7 @@ public:
 
   void updateSampleIndex(int indexPosition, int padValue)
   {
-    if (padValue == 0)
-    {
-      sequences[*selectedSample][indexPosition] = 0;
-    }
-    else
-    {
-      sequences[*selectedSample][indexPosition] = 1;
-    }
+    sequences[*selectedSample][indexPosition] = !sequences[*selectedSample][indexPosition];
   };
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
@@ -106,14 +103,14 @@ public:
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
-  std::array<float, 4> previousGain;
-  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothGainRamp;
-  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothLowRamps;
-  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothHighRamps;
-  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 4> smoothBandRamps;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsLowPass;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsHighPass;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 4> duplicatorsBandPass;
+  std::array<float, 8> previousGain;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRamp;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothLowRamps;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothHighRamps;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothBandRamps;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsLowPass;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsHighPass;
+  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsBandPass;
   int *lengthInSamples;
   int mSamplePosition = 0;
   int mTotalSamples{0};
@@ -123,20 +120,20 @@ private:
   int mSamplesRemaining{0};
   int currentSequenceIndex{0};
   int sequenceSize{16};
-  int size{4};
+  int size{8};
   bool sequencePlaying{false};
-  std::vector<int> sequences[4];
-  std::array<int, 4> samplesPosition = {0, 0, 0, 0};
-  std::array<bool, 4> sampleOn = {false, false, false, false};
-  std::array<bool, 4> sampleMakeNoise = {false, false, false, false};
-  std::array<bool, 4> samplesPressed = {false};
-  std::array<bool, 4> isInReleasePhase = {false};
+  std::vector<int> sequences[8];
+  std::array<int, 8> samplesPosition = {0};
+  std::array<bool, 8> sampleOn = {false};
+  std::array<bool, 8> sampleMakeNoise = {false};
+  std::array<bool, 8> samplesPressed = {false};
+  std::array<bool, 8> isInReleasePhase = {false};
   std::vector<float> sampleStart;
   std::vector<float> sampleLength;
-  std::array<juce::ADSR, 4> adsrList;
-  std::array<juce::dsp::Reverb, 4> reverbs;
-  std::array<juce::dsp::Chorus<float>, 4> chorus;
-  std::array<juce::LinearInterpolator, 4> interpolators;
-  std::array<float, 4> pitchShiftFactors = {1.0, 1.0, 1.0, 1.0};
+  std::array<juce::ADSR, 8> adsrList;
+  std::array<juce::dsp::Reverb, 8> reverbs;
+  std::array<juce::dsp::Chorus<float>, 8> chorus;
+  std::array<juce::LinearInterpolator, 8> interpolators;
+  std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();
 };

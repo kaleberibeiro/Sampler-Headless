@@ -18,22 +18,18 @@ public:
   {
     if (message.isController())
     {
-      // Handle the shift and sample select keys
       handleMomentaryBtn(message);
 
       if (isShiftPressed)
       {
-        // Activate samples when Shift (key 45) is pressed
         activateSample(message);
       }
       else if (isSampleSelectedPressed)
       {
-        // Select samples when Sample Select (key 46) is pressed
         selectSample(message);
       }
       else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 66)
       {
-        // Call updateSampleIndex for controllers 51 to 66
         mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
       }
       else if (message.getControllerNumber() >= 67 && message.getControllerNumber() <= 74)
@@ -42,12 +38,10 @@ public:
       }
       else
       {
-        // Handle other controller changes
         handleOtherControllers(message);
       }
-      // Logging for debugging
-      // std::cout << "Controller Number: " << message.getControllerNumber() << std::endl;
-      // std::cout << "Controller Value: " << message.getControllerValue() << std::endl;
+
+      // std::cout << "CC: " << message.getControllerNumber() << std::endl;
     }
   }
 
@@ -68,7 +62,7 @@ private:
     {
       if (message.getControllerNumber() == momentaryBtnIndices[i])
       {
-        momentaryBtnStates[i] = (message.getControllerValue() == 127); // Button is pressed when value is 127
+        momentaryBtnStates[i] = (message.getControllerValue() == 127);
       }
     }
 
@@ -87,16 +81,28 @@ private:
     switch (message.getControllerNumber())
     {
     case 51:
-      mySamplerVoice.activateSample(0);
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
       break;
     case 52:
-      mySamplerVoice.activateSample(1);
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
       break;
     case 53:
-      mySamplerVoice.activateSample(2);
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
       break;
     case 54:
-      mySamplerVoice.activateSample(3);
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
+      break;
+    case 55:
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
+      break;
+    case 56:
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
+      break;
+    case 57:
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
+      break;
+    case 58:
+      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
       break;
     }
   }
@@ -106,16 +112,28 @@ private:
     switch (message.getControllerNumber())
     {
     case 51:
-      mySamplerVoice.changeSelectedSample(0);
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
       break;
     case 52:
-      mySamplerVoice.changeSelectedSample(1);
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
       break;
     case 53:
-      mySamplerVoice.changeSelectedSample(2);
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
       break;
     case 54:
-      mySamplerVoice.changeSelectedSample(3);
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
+      break;
+    case 55:
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
+      break;
+    case 56:
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
+      break;
+    case 57:
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
+      break;
+    case 58:
+      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
       break;
     }
   }
@@ -128,6 +146,10 @@ private:
     case 1:
     case 2:
     case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
       if (momentaryBtnStates[message.getControllerNumber()])
       {
         mySamplerVoice.changePitchShift(message.getControllerNumber(), message.getControllerValue());
@@ -209,7 +231,6 @@ public:
                                         int numSamples,
                                         const juce::AudioIODeviceCallbackContext &context) override
   {
-    // Create AudioBuffer objects for input and output
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
     juce::MidiBuffer midiBuffer;
 
@@ -224,6 +245,7 @@ private:
   int count = 0;
 };
 
+
 // Function to check if a key has been pressed
 bool keyPressed()
 {
@@ -234,39 +256,62 @@ bool keyPressed()
   return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) == 1;
 }
 
+
 int main()
 {
-
   juce::AudioDeviceManager devmgr;
   devmgr.initialiseWithDefaultDevices(0, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
-  int lengthInSamples[4] = {0, 0, 0, 0};
-  std::string fileNames[4] = {"mdp-kick-trance.wav", "snare.wav", "techno-bass.wav", "dry-808-ride.wav"};
+  std::vector<int> lengthInSamples; 
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
   mAudioFormatManager.registerBasicFormats();
-  juce::File myFile{juce::File::getSpecialLocation(juce::File::userDesktopDirectory)};
+
+  // Caminho para a pasta "Samples"
+  juce::File samplesFolder{juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("Samples")};
+
+  // Verifica se a pasta existe
+  if (!samplesFolder.exists() || !samplesFolder.isDirectory())
+  {
+    std::cerr << "A pasta 'Samples' não foi encontrada no ambiente de trabalho!" << std::endl;
+    return -1;
+  }
+
+  juce::Array<juce::File> sampleFiles = samplesFolder.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, "*.*");
+
+  if (sampleFiles.isEmpty())
+  {
+    std::cerr << "Nenhum ficheiro de áudio encontrado na pasta 'Samples'!" << std::endl;
+    return -1;
+  }
 
   mySynth.clearVoices();
   mySynth.clearSounds();
 
-  for (int i = 0; i < 4; i++)
+  int maxSamples = 8; // Limitar a 4 samples
+  for (int i = 0; i < sampleFiles.size() && i < maxSamples; ++i)
   {
-    auto mySamples = myFile.findChildFiles(juce::File::TypesOfFileToFind::findFiles, true, fileNames[i]);
-    jassert(mySamples[0].exists());
-    auto formatReader = mAudioFormatManager.createReaderFor(mySamples[0]);
-    lengthInSamples[i] = formatReader->lengthInSamples;
+    std::cout << "Carregando ficheiro: " << sampleFiles[i].getFileName().toStdString() << std::endl;
 
-    mySynth.addSound(new juce::SamplerSound(fileNames[i], *formatReader, range, 60, 0.0, 0.0, 3.0));
+    std::unique_ptr<juce::AudioFormatReader> formatReader(mAudioFormatManager.createReaderFor(sampleFiles[i]));
+    if (formatReader != nullptr)
+    {
+      lengthInSamples.push_back(formatReader->lengthInSamples);
+      mySynth.addSound(new juce::SamplerSound(sampleFiles[i].getFileNameWithoutExtension(), *formatReader, range, 60, 0.0, 0.0, 3.0));
+    }
+    else
+    {
+      std::cerr << "Não foi possível ler o ficheiro: " << sampleFiles[i].getFileName().toStdString() << std::endl;
+    }
   }
 
-  MySamplerVoice myVoice(&mySynth, lengthInSamples);
+  MySamplerVoice myVoice(&mySynth, lengthInSamples.data());
 
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < maxSamples; ++i)
   {
     mySynth.addVoice(&myVoice);
   }
@@ -297,6 +342,7 @@ int main()
 
     devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
     devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+
     bool playAudio = true;
 
     while (playAudio)
@@ -311,9 +357,6 @@ int main()
       }
     }
   }
-
-  // Clean up resources before exiting
-  // ...
 
   return 0;
 }
