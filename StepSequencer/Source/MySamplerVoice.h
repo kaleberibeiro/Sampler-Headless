@@ -8,17 +8,11 @@ public:
       : mySynth(mySynth),
         lengthInSamples(lengthInSamples),
         sampleStart(8, 0),
-        sampleLength(8, 1.0f),
-        adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()}
+        sampleLength(8, *lengthInSamples),
+        adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
+        sequences(8, std::vector<int>(64, 0))
   {
-    sequences[0] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[2] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[3] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[4] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[5] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[6] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    sequences[7] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -42,21 +36,28 @@ public:
   {
     if (sampleCommand == 127)
     {
+      samplesPosition[sampleIndex] = 0;
       samplesPressed[sampleIndex] = true;
     }
     else
     {
       samplesPressed[sampleIndex] = false;
-      samplesPosition[sampleIndex] = 0;
     }
   }
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
   void changeSampleStart(int knobValue)
   {
-    int scaledStart = static_cast<int>(static_cast<float>(knobValue) / 127.0f * lengthInSamples[*selectedSample]);
+    int maxLength = lengthInSamples[*selectedSample];
 
-    sampleStart[*selectedSample] = scaledStart;
+    int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
+
+    if (newLength < 0)
+      newLength = 0;
+    if (newLength > maxLength)
+      newLength = maxLength;
+
+    sampleLength[*selectedSample] = static_cast<float>(newLength);
   }
   void changeSampleLength(int knobValue) { sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
   void changeAdsrValues(int knobValue, int adsrParam);
@@ -74,6 +75,10 @@ public:
 
   void playSequence()
   {
+    for (int i = 0; i < size; i++)
+    {
+      samplesPosition[i] = 0;
+    }
     sequencePlaying = true;
     startTimer(1000 / ((mBpm / 60.f) * 4));
   };
@@ -86,7 +91,7 @@ public:
 
     for (int i = 0; i < size; i++)
     {
-      samplesPosition[i] = 0;
+      // samplesPosition[i] = 0;
       sampleMakeNoise[i] = false;
       adsrList[i].noteOff();
     }
@@ -124,17 +129,16 @@ private:
   double mBpm{140.0};
   int mSamplesRemaining{0};
   int currentSequenceIndex{0};
-  int sequenceSize{16};
+  int sequenceSize{64};
   int size{8};
   bool sequencePlaying{false};
-  std::vector<int> sequences[8];
+  std::vector<std::vector<int>> sequences;
   std::array<int, 8> samplesPosition = {0};
   std::array<bool, 8> sampleOn = {false};
   std::array<bool, 8> sampleMakeNoise = {false};
   std::array<bool, 8> samplesPressed = {false};
-  std::array<bool, 8> isInReleasePhase = {false};
   std::vector<int> sampleStart;
-  std::vector<float> sampleLength;
+  std::vector<int> sampleLength;
   std::array<juce::ADSR, 8> adsrList;
   std::array<juce::dsp::Reverb, 8> reverbs;
   std::array<juce::dsp::Chorus<float>, 8> chorus;

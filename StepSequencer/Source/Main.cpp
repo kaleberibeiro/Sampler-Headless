@@ -20,7 +20,10 @@ public:
     {
       handleMomentaryBtn(message);
 
-      if (isShiftPressed)
+      if (message.getControllerNumber() == 50)
+      {
+        changePage();
+      } else if (isShiftPressed)
       {
         activateSample(message);
       }
@@ -30,7 +33,7 @@ public:
       }
       else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 66)
       {
-        mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
+        mySamplerVoice.updateSampleIndex(getAdjustedIndex(message.getControllerNumber()), message.getControllerValue());
       }
       else if (message.getControllerNumber() >= 67 && message.getControllerNumber() <= 74)
       {
@@ -41,7 +44,6 @@ public:
         handleOtherControllers(message);
       }
 
-      // std::cout << "CC: " << message.getControllerNumber() << std::endl;
     }
   }
 
@@ -55,6 +57,25 @@ private:
   bool isSampleSelectedPressed = false;
   bool momentaryBtnStates[8] = {false};
   const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
+  int currentPage = 1;
+  const int totalPages = 4;
+
+  void changePage()
+  {
+    currentPage++;
+    if (currentPage > totalPages)
+    {
+      currentPage = 1; // Wrap back to page 1
+    }
+    std::cout << "Current Page: " << currentPage << std::endl; // Print the current page for debugging
+  }
+
+  // Function to adjust the index based on the current page
+  int getAdjustedIndex(int controllerNumber)
+  {
+    int index = controllerNumber - 51;     // Get the index based on the controller number (0-15)
+    return (currentPage - 1) * 16 + index; // Adjust index based on current page
+  }
 
   void handleMomentaryBtn(const juce::MidiMessage &message)
   {
@@ -245,7 +266,6 @@ private:
   int count = 0;
 };
 
-
 // Function to check if a key has been pressed
 bool keyPressed()
 {
@@ -256,7 +276,6 @@ bool keyPressed()
   return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) == 1;
 }
 
-
 int main()
 {
   juce::AudioDeviceManager devmgr;
@@ -265,7 +284,7 @@ int main()
   juce::Synthesiser mySynth;
   Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
-  std::vector<int> lengthInSamples; 
+  std::vector<int> lengthInSamples;
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
@@ -301,7 +320,7 @@ int main()
     if (formatReader != nullptr)
     {
       lengthInSamples.push_back(formatReader->lengthInSamples);
-      mySynth.addSound(new juce::SamplerSound(sampleFiles[i].getFileNameWithoutExtension(), *formatReader, range, 60, 0.0, 0.0, 3.0));
+      mySynth.addSound(new juce::SamplerSound(sampleFiles[i].getFileNameWithoutExtension(), *formatReader, range, 60, 0.0, 0.0, 30.0));
     }
     else
     {

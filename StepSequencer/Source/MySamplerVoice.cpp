@@ -226,73 +226,83 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
     juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
     sampleBuffer.clear();
 
-    if (samplesPressed[voiceIndex])
+    juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
+    juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
+    if (samplerSound != nullptr)
     {
-      juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
-      juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
-      if (samplerSound != nullptr)
+      if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
       {
-        if (samplesPosition[voiceIndex] == 0 && samplesPressed[voiceIndex])
+        // Reset ADSR and filters only on the first playback
+        adsrList[voiceIndex].reset();
+        adsrList[voiceIndex].noteOn();
+      }
+
+      // Handle gain ramping
+      if (samplesPressed[voiceIndex])
+      {
+        smoothGainRamp[voiceIndex].setTargetValue(previousGain[voiceIndex]);
+      }
+      else
+      {
+        // Do not reset sample position here; just set target gain to 0
+        smoothGainRamp[voiceIndex].setTargetValue(0.0);
+      }
+
+      for (int sample = 0; sample < numSamples; ++sample)
+      {
+        float adsrValue = adsrList[voiceIndex].getNextSample();
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
-          // Reset ADSR and filters only on the first playback
-          adsrList[voiceIndex].reset();
-          adsrList[voiceIndex].noteOn();
+          const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
+          const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
+          float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
+          sampleBuffer.addSample(channel, startSample + sample, finalSamples);
         }
 
-        for (int sample = 0; sample < numSamples; ++sample)
+        // Check if the sample is pressed to update the sample position
+        if (samplesPressed[voiceIndex])
         {
-          // PRIMEIRO PASSO VER SE O SAMPLE ACABOU //
-          float adsrValue = adsrList[voiceIndex].getNextSample();
-          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-          {
-            const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
-            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
-            sampleBuffer.addSample(channel, startSample + sample, finalSamples);
-          }
-
-          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
-          {
-            adsrList[voiceIndex].noteOff();
-            isInReleasePhase[voiceIndex] = true;
-          }
-          else
+          if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
           {
             ++samplesPosition[voiceIndex];
           }
+          else
+          {
+            // Call noteOff when the sample ends
+            adsrList[voiceIndex].noteOff();
+          }
         }
+      }
 
-        ///// AUDIO BLOCK ////////
-        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
-        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+      // Continue with filter, reverb, chorus processing, etc.
+      juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
+      juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
-        ///// IIR FILTERS ///////
-        if (smoothLowRamps[voiceIndex].getNextValue() > 0)
-        {
-          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
-          duplicatorsLowPass[voiceIndex].process(context);
-        }
-        if (smoothHighRamps[voiceIndex].getNextValue() > 0)
-        {
-          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
-          duplicatorsHighPass[voiceIndex].process(context);
-        }
-        if (smoothBandRamps[voiceIndex].getNextValue() > 0)
-        {
-          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getNextValue());
-          duplicatorsBandPass[voiceIndex].process(context);
-        }
+      // IIR Filter processing
+      if (smoothLowRamps[voiceIndex].getCurrentValue() > 0)
+      {
+        *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getCurrentValue());
+        duplicatorsLowPass[voiceIndex].process(context);
+      }
+      if (smoothHighRamps[voiceIndex].getCurrentValue() > 0)
+      {
+        *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getCurrentValue());
+        duplicatorsHighPass[voiceIndex].process(context);
+      }
+      if (smoothBandRamps[voiceIndex].getCurrentValue() > 0)
+      {
+        *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getCurrentValue());
+        duplicatorsBandPass[voiceIndex].process(context);
+      }
 
-        ///// REVERB ////////
-        reverbs[voiceIndex].process(context);
-        ///// CHORUS ////////
-        chorus[voiceIndex].process(context);
+      // Reverb and Chorus processing
+      reverbs[voiceIndex].process(context);
+      chorus[voiceIndex].process(context);
 
-        // Add sample buffer to batch buffer
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-          batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
-        }
+      // Add sample buffer to batch buffer
+      for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+      {
+        batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
       }
     }
   }
