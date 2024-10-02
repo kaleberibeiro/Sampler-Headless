@@ -20,10 +20,7 @@ public:
     {
       handleMomentaryBtn(message);
 
-      if (message.getControllerNumber() == 50)
-      {
-        changePage();
-      } else if (isShiftPressed)
+      if (isShiftPressed)
       {
         activateSample(message);
       }
@@ -31,19 +28,21 @@ public:
       {
         selectSample(message);
       }
-      else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 66)
+      else if (isSamplePlay)
       {
-        mySamplerVoice.updateSampleIndex(getAdjustedIndex(message.getControllerNumber()), message.getControllerValue());
+        if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58)
+        {
+          mySamplerVoice.playSample(message.getControllerNumber() - 51, message.getControllerValue());
+        }
       }
-      else if (message.getControllerNumber() >= 67 && message.getControllerNumber() <= 74)
+      else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
       {
-        mySamplerVoice.playSample(message.getControllerNumber() - 67, message.getControllerValue());
+        mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
       }
       else
       {
         handleOtherControllers(message);
       }
-
     }
   }
 
@@ -55,27 +54,10 @@ private:
   int count = 0;
   bool isShiftPressed = false;
   bool isSampleSelectedPressed = false;
+  bool isSamplePlay = false;
   bool momentaryBtnStates[8] = {false};
   const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
-  int currentPage = 1;
-  const int totalPages = 4;
-
-  void changePage()
-  {
-    currentPage++;
-    if (currentPage > totalPages)
-    {
-      currentPage = 1; // Wrap back to page 1
-    }
-    std::cout << "Current Page: " << currentPage << std::endl; // Print the current page for debugging
-  }
-
-  // Function to adjust the index based on the current page
-  int getAdjustedIndex(int controllerNumber)
-  {
-    int index = controllerNumber - 51;     // Get the index based on the controller number (0-15)
-    return (currentPage - 1) * 16 + index; // Adjust index based on current page
-  }
+  int knobPage = 1;
 
   void handleMomentaryBtn(const juce::MidiMessage &message)
   {
@@ -94,6 +76,10 @@ private:
     else if (message.getControllerNumber() == 46)
     {
       isSampleSelectedPressed = (message.getControllerValue() == 127);
+    }
+    else if (message.getControllerNumber() == 47)
+    {
+      isSamplePlay = (message.getControllerValue() == 127);
     }
   }
 
@@ -181,16 +167,44 @@ private:
       }
       break;
     case 8:
-      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 25);
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeSampleStart(message.getControllerValue());
+      }
       break;
     case 9:
-      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 26);
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeSampleLength(message.getControllerValue());
+      }
       break;
     case 10:
-      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 27);
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeChorus(message.getControllerValue());
+      }
       break;
     case 11:
-      mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeAdsrValues(message.getControllerValue(), 28);
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeFlanger(message.getControllerValue());
+      }
       break;
     case 12:
       mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
@@ -205,7 +219,16 @@ private:
       mySamplerVoice.changeReverb(message.getControllerValue());
       break;
     case 16:
-      mySamplerVoice.changeChorus(message.getControllerValue());
+      break;
+    case 40:
+      if (message.getControllerValue() == 0)
+      {
+        knobPage = 1;
+      }
+      else
+      {
+        knobPage = 2;
+      }
       break;
     case 43:
       if (message.getControllerValue() == 0)

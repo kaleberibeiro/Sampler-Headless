@@ -63,6 +63,13 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     chorus[i].setFeedback(0.3);
     chorus[i].setDepth(0.1);
     chorus[i].setMix(0.0);
+
+    // FLANGER SETUP //
+    flanger[i].prepare(spec);
+    flanger[i].setCentreDelay(2.0);
+    flanger[i].setFeedback(0.8);
+    flanger[i].setDepth(0.1);
+    flanger[i].setMix(0.0);
   }
 }
 
@@ -198,6 +205,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       reverbs[voiceIndex].process(context);
       ///// CHORUS ////////
       chorus[voiceIndex].process(context);
+      ///// FLANGER ////////
+      flanger[voiceIndex].process(context);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -298,6 +307,7 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
       // Reverb and Chorus processing
       reverbs[voiceIndex].process(context);
       chorus[voiceIndex].process(context);
+      flanger[voiceIndex].process(context);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -425,5 +435,25 @@ void MySamplerVoice::changeReverb(double knobValue)
 
 void MySamplerVoice::changeChorus(double knobValue)
 {
-  chorus[*selectedSample].setMix(static_cast<float>(knobValue) / 127.0f);
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+
+  // Melhorando a profundidade do chorus para mais "largura" no som
+  chorus[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.3f + (normalizedValue * 0.4f)));        // Profundidade moderada
+  chorus[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.1f + (normalizedValue * 0.2f)));    // Feedback sutil
+  chorus[*selectedSample].setRate(juce::jlimit(0.0f, 5.0f, 0.5f + (normalizedValue * 1.5f)));         // Taxa de modulação mais lenta
+  chorus[*selectedSample].setCentreDelay(juce::jlimit(5.0f, 15.0f, 7.0f + (normalizedValue * 3.0f))); // Atraso central típico
+  chorus[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.3f)));          // Mix equilibrado
+                                                                                                      // Controle de mix
+}
+
+void MySamplerVoice::changeFlanger(double knobValue)
+{
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+
+  // Ajustando o flanger para um som clássico
+  flanger[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.3f + (normalizedValue * 0.3f)));       // Profundidade moderada para um efeito mais suave
+  flanger[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.4f + (normalizedValue * 0.3f)));   // Feedback controlado, entre 0.4 e 0.7
+  flanger[*selectedSample].setRate(juce::jlimit(0.0f, 1.0f, 0.1f + (normalizedValue * 0.9f)));        // Taxa mais lenta para um flanger clássico
+  flanger[*selectedSample].setCentreDelay(juce::jlimit(0.2f, 2.0f, 0.5f + (normalizedValue * 1.5f))); // Atraso central entre 0.5 ms e 2 ms
+  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, 0.5f + (normalizedValue * 0.4f)));         // Mix entre 0.5 e 0.9 para balancear o efeito
 }

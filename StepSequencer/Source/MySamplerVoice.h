@@ -12,7 +12,6 @@ public:
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
         sequences(8, std::vector<int>(64, 0))
   {
-
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -46,26 +45,29 @@ public:
   }
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
+  void changeSampleLength(int knobValue)
+  {
+    int maxLength = lengthInSamples[*selectedSample];
+    std::cout << "O Tamanho do sample é: " << maxLength << std::endl;
+
+    int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
+    std::cout << "O valor do knob é: " << knobValue << " e isso dá um tamanho final de: " << newLength << std::endl;
+    sampleLength[*selectedSample] = static_cast<float>(newLength);
+  }
   void changeSampleStart(int knobValue)
   {
     int maxLength = lengthInSamples[*selectedSample];
-
-    int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
-
-    if (newLength < 0)
-      newLength = 0;
-    if (newLength > maxLength)
-      newLength = maxLength;
-
-    sampleLength[*selectedSample] = static_cast<float>(newLength);
+    int startPosition = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
+    sampleStart[*selectedSample] = static_cast<float>(startPosition);
   }
-  void changeSampleLength(int knobValue) { sampleLength[*selectedSample] = static_cast<float>(knobValue) / 127.0f; }
+
   void changeAdsrValues(int knobValue, int adsrParam);
   void changeLowPassFilter(double sampleRate, double knobValue);
   void changeHighPassFilter(double sampleRate, double knobValue);
   void changeBandPassFilter(double sampleRate, double knobValue);
   void changeReverb(double knobValue);
   void changeChorus(double knobValue);
+  void changeFlanger(double knobValue);
   void changePitchShift(int sampleIndex, int knobValue)
   {
     float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
@@ -142,6 +144,7 @@ private:
   std::array<juce::ADSR, 8> adsrList;
   std::array<juce::dsp::Reverb, 8> reverbs;
   std::array<juce::dsp::Chorus<float>, 8> chorus;
+  std::array<juce::dsp::Chorus<float>, 8> flanger;
   std::array<juce::LinearInterpolator, 8> interpolators;
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();
