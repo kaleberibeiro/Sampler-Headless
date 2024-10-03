@@ -48,10 +48,8 @@ public:
   void changeSampleLength(int knobValue)
   {
     int maxLength = lengthInSamples[*selectedSample];
-    std::cout << "O Tamanho do sample é: " << maxLength << std::endl;
 
     int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
-    std::cout << "O valor do knob é: " << knobValue << " e isso dá um tamanho final de: " << newLength << std::endl;
     sampleLength[*selectedSample] = static_cast<float>(newLength);
   }
   void changeSampleStart(int knobValue)

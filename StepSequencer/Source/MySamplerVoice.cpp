@@ -173,7 +173,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
         if (sampleMakeNoise[voiceIndex])
         {
-          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
+          if (samplesPosition[voiceIndex] >= sampleLength[voiceIndex])
           {
             adsrList[voiceIndex].noteOff();
           }
@@ -277,7 +277,7 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
         // Check if the sample is pressed to update the sample position
         if (samplesPressed[voiceIndex])
         {
-          if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
+          if (samplesPosition[voiceIndex] < sampleLength[voiceIndex])
           {
             ++samplesPosition[voiceIndex];
           }
