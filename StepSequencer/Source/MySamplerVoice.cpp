@@ -71,6 +71,10 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     flanger[i].setDepth(0.1);
     flanger[i].setMix(0.0);
 
+    // PHASER SETUP //
+    phaser[i].prepare(spec);
+    phaser[i].setMix(0.0);
+
     // PANNER //
     panner[i].prepare(spec);
     panner[i].setRule(juce::dsp::PannerRule::linear);
@@ -146,8 +150,6 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
     {
       if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
       {
-        // Reset ADSR and filters only on the first playback
-        adsrList[voiceIndex].reset();
         adsrList[voiceIndex].noteOn();
       }
 
@@ -162,20 +164,23 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
       for (int sample = 0; sample < numSamples; ++sample)
       {
-        float adsrValue = adsrList[voiceIndex].getNextSample();
+        float gainValue = smoothGainRamp[voiceIndex].getNextValue();
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
           const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
           const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-          float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
+          float finalSamples = audioData[samplesPosition[voiceIndex]] * gainValue;
           sampleBuffer.addSample(channel, startSample + sample, finalSamples);
         }
 
         if (sampleMakeNoise[voiceIndex])
         {
-          if (samplesPosition[voiceIndex] >= sampleLength[voiceIndex])
+          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
           {
-            adsrList[voiceIndex].noteOff();
+            if (adsrList[voiceIndex].getNextSample() >= 1)
+            {
+              adsrList[voiceIndex].noteOff();
+            }
           }
           else
           {
@@ -213,6 +218,10 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       flanger[voiceIndex].process(context);
       ///// PANNER ////////
       panner[voiceIndex].process(context);
+      ///// PHASER ////////
+      phaser[voiceIndex].process(context);
+
+      adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -232,7 +241,6 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
 {
   const juce::ScopedLock sl(objectLock);
 
-  // Prepare a batch buffer for processing all voices together
   juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
   batchBuffer.clear();
 
@@ -247,43 +255,36 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
     {
       if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
       {
-        // Reset ADSR and filters only on the first playback
-        adsrList[voiceIndex].reset();
         adsrList[voiceIndex].noteOn();
       }
 
-      // Handle gain ramping
       if (samplesPressed[voiceIndex])
       {
         smoothGainRamp[voiceIndex].setTargetValue(previousGain[voiceIndex]);
       }
       else
       {
-        // Do not reset sample position here; just set target gain to 0
         smoothGainRamp[voiceIndex].setTargetValue(0.0);
       }
 
       for (int sample = 0; sample < numSamples; ++sample)
       {
-        float adsrValue = adsrList[voiceIndex].getNextSample();
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
           const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
           const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-          float finalSamples = (audioData[samplesPosition[voiceIndex]] * adsrValue * smoothGainRamp[voiceIndex].getNextValue());
+          float finalSamples = (audioData[samplesPosition[voiceIndex]] * smoothGainRamp[voiceIndex].getNextValue());
           sampleBuffer.addSample(channel, startSample + sample, finalSamples);
         }
 
-        // Check if the sample is pressed to update the sample position
         if (samplesPressed[voiceIndex])
         {
-          if (samplesPosition[voiceIndex] < sampleLength[voiceIndex])
+          if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
           {
             ++samplesPosition[voiceIndex];
           }
           else
           {
-            // Call noteOff when the sample ends
             adsrList[voiceIndex].noteOff();
           }
         }
@@ -315,6 +316,9 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
       chorus[voiceIndex].process(context);
       flanger[voiceIndex].process(context);
       panner[voiceIndex].process(context);
+      phaser[voiceIndex].process(context);
+
+      adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -359,20 +363,15 @@ void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
 
 void MySamplerVoice::activateSample(int sample)
 {
-  // If the sample is playing, gracefully stop it using ADSR
   if (sampleOn[sample])
   {
-    // Trigger the release phase of the ADSR envelope
-    adsrList[sample].noteOff();
+    // adsrList[sample].noteOff();
     sampleOn[sample] = false;
-    // Optional: Add logic to manage the release phase duration
   }
   else
   {
-    // Activate the sample
     sampleOn[sample] = true;
     samplesPosition[sample] = 0;
-    // Trigger the ADSR envelope
     adsrList[sample].reset();
     adsrList[sample].noteOn();
   }
@@ -383,10 +382,8 @@ void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
   double minFreq = 100.0;
   double maxFreq = 10000.0;
 
-  // When knobValue is 0, set to default value (bypass)
   double cutoffFrequency = (knobValue == 0) ? maxFreq : maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
 
-  // Set target value for smooth transition
   smoothLowRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
@@ -395,10 +392,8 @@ void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
   double minFreq = 20.0;
   double maxFreq = 5000.0;
 
-  // When knobValue is 0, set to default value (bypass)
   double cutoffFrequency = (knobValue == 0) ? minFreq : minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
 
-  // Set target value for smooth transition
   smoothHighRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
@@ -407,10 +402,8 @@ void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
   double minFreq = 500.0;
   double maxFreq = 4000.0;
 
-  // When knobValue is 0, set to default value (bypass)
   double cutoffFrequency = (knobValue == 0) ? (minFreq + maxFreq) / 2 : maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
 
-  // Set target value for smooth transition
   smoothBandRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
@@ -468,4 +461,15 @@ void MySamplerVoice::changePanner(int knobValue)
   knobValue = juce::jlimit(0, 127, knobValue);
   float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
   panner[*selectedSample].setPan(panningValue);
+}
+
+void MySamplerVoice::changePhaser(double knobValue)
+{
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+
+  phaser[*selectedSample].setRate(juce::jlimit(0.1f, 10.0f, 0.2f + (normalizedValue * 9.8f)));                     // Phaser rate (0.1Hz to 10Hz)
+  phaser[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
+  phaser[*selectedSample].setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
+  phaser[*selectedSample].setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
+  phaser[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));                                       // Mix between dry (0) and wet (1)
 }

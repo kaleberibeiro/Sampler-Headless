@@ -183,7 +183,14 @@ private:
       }
       break;
     case 13:
-      mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changePhaser(message.getControllerValue());
+      }
       break;
     case 14:
       mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());

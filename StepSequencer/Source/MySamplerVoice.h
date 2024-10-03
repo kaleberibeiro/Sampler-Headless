@@ -66,6 +66,7 @@ public:
   void changeReverb(double knobValue);
   void changeChorus(double knobValue);
   void changeFlanger(double knobValue);
+  void changePhaser(double knobValue);
   void changePanner(int knobValue);
   void changePitchShift(int sampleIndex, int knobValue)
   {
@@ -100,8 +101,9 @@ public:
 
   void changeSampleVelocity(int sampleIndex, int knobValue)
   {
-    smoothGainRamp[sampleIndex].setTargetValue(static_cast<float>(knobValue) / 127.0f);
-    previousGain[sampleIndex] = static_cast<float>(knobValue) / 127.0f;
+    float finalValue = (static_cast<float>(knobValue) / 127.0f) * 0.7;
+    smoothGainRamp[sampleIndex].setTargetValue(finalValue);
+    previousGain[sampleIndex] = finalValue;
   };
 
   void updateSampleIndex(int indexPosition, int padValue)
@@ -145,6 +147,7 @@ private:
   std::array<juce::dsp::Chorus<float>, 8> chorus;
   std::array<juce::dsp::Chorus<float>, 8> flanger;
   std::array<juce::dsp::Panner<float>, 8> panner;
+  std::array<juce::dsp::Phaser<float>, 8> phaser;
   std::array<juce::LinearInterpolator, 8> interpolators;
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();
