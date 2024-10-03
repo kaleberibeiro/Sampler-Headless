@@ -68,6 +68,7 @@ public:
   void changeReverb(double knobValue);
   void changeChorus(double knobValue);
   void changeFlanger(double knobValue);
+  void changePanner(int knobValue);
   void changePitchShift(int sampleIndex, int knobValue)
   {
     float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
@@ -145,6 +146,7 @@ private:
   std::array<juce::dsp::Reverb, 8> reverbs;
   std::array<juce::dsp::Chorus<float>, 8> chorus;
   std::array<juce::dsp::Chorus<float>, 8> flanger;
+  std::array<juce::dsp::Panner<float>, 8> panner;
   std::array<juce::LinearInterpolator, 8> interpolators;
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();

@@ -70,6 +70,10 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     flanger[i].setFeedback(0.8);
     flanger[i].setDepth(0.1);
     flanger[i].setMix(0.0);
+
+    // PANNER //
+    panner[i].prepare(spec);
+    panner[i].setRule(juce::dsp::PannerRule::linear);
   }
 }
 
@@ -207,6 +211,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       chorus[voiceIndex].process(context);
       ///// FLANGER ////////
       flanger[voiceIndex].process(context);
+      ///// PANNER ////////
+      panner[voiceIndex].process(context);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -308,6 +314,7 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
       reverbs[voiceIndex].process(context);
       chorus[voiceIndex].process(context);
       flanger[voiceIndex].process(context);
+      panner[voiceIndex].process(context);
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -438,22 +445,27 @@ void MySamplerVoice::changeChorus(double knobValue)
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
   // Melhorando a profundidade do chorus para mais "largura" no som
-  chorus[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.3f + (normalizedValue * 0.4f)));        // Profundidade moderada
-  chorus[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.1f + (normalizedValue * 0.2f)));    // Feedback sutil
-  chorus[*selectedSample].setRate(juce::jlimit(0.0f, 5.0f, 0.5f + (normalizedValue * 1.5f)));         // Taxa de modulação mais lenta
-  chorus[*selectedSample].setCentreDelay(juce::jlimit(5.0f, 15.0f, 7.0f + (normalizedValue * 3.0f))); // Atraso central típico
-  chorus[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.3f)));          // Mix equilibrado
-                                                                                                      // Controle de mix
+  chorus[*selectedSample].setDepth(juce::jlimit(0.0f, 0.3f, 0.1f + (normalizedValue * 0.2f)));        // Moderate depth (BOSS choruses tend to have rich, lush depth)
+  chorus[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.0f + (normalizedValue * 0.15f)));   // Minimal feedback (BOSS pedals usually have no to low feedback)
+  chorus[*selectedSample].setRate(juce::jlimit(0.1f, 2.0f, 0.33f + (normalizedValue * 1.0f)));        // Slower modulation rate (BOSS CE-2 ranges from ~0.33Hz to 2Hz)
+  chorus[*selectedSample].setCentreDelay(juce::jlimit(5.0f, 10.0f, 5.0f + (normalizedValue * 2.0f))); // Shorter delay for classic chorus (CE-2 is around 5-10 ms delay)
+  chorus[*selectedSample].setMix(juce::jlimit(0.0f, 0.6f, normalizedValue));
 }
 
 void MySamplerVoice::changeFlanger(double knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-  // Ajustando o flanger para um som clássico
-  flanger[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.3f + (normalizedValue * 0.3f)));       // Profundidade moderada para um efeito mais suave
-  flanger[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.4f + (normalizedValue * 0.3f)));   // Feedback controlado, entre 0.4 e 0.7
-  flanger[*selectedSample].setRate(juce::jlimit(0.0f, 1.0f, 0.1f + (normalizedValue * 0.9f)));        // Taxa mais lenta para um flanger clássico
-  flanger[*selectedSample].setCentreDelay(juce::jlimit(0.2f, 2.0f, 0.5f + (normalizedValue * 1.5f))); // Atraso central entre 0.5 ms e 2 ms
-  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, 0.5f + (normalizedValue * 0.4f)));         // Mix entre 0.5 e 0.9 para balancear o efeito
+  flanger[*selectedSample].setDepth(juce::jlimit(0.0f, 0.5f, 0.2f + (normalizedValue * 0.3f)));       // Deeper modulation (Boss flangers often have strong modulation)
+  flanger[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));   // More pronounced feedback, typical of Boss flangers
+  flanger[*selectedSample].setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));        // Slightly faster rate, but not too extreme
+  flanger[*selectedSample].setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f))); // Wider delay range for the sweeping flanger effect (more noticeable)
+  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));                       // Full mix from 0 (dry) to 1 (wet)
+}
+
+void MySamplerVoice::changePanner(int knobValue)
+{
+  knobValue = juce::jlimit(0, 127, knobValue);
+  float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
+  panner[*selectedSample].setPan(panningValue);
 }

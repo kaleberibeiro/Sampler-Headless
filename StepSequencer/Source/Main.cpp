@@ -85,63 +85,29 @@ private:
 
   void activateSample(const juce::MidiMessage &message)
   {
-    switch (message.getControllerNumber())
+    int controllerNumber = message.getControllerNumber();
+
+    if ((controllerNumber >= 51 && controllerNumber <= 58) ||
+        (controllerNumber >= 67 && controllerNumber <= 74) ||
+        (controllerNumber >= 83 && controllerNumber <= 90) ||
+        (controllerNumber >= 99 && controllerNumber <= 106))
     {
-    case 51:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 52:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 53:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 54:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 55:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 56:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 57:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
-    case 58:
-      mySamplerVoice.activateSample(message.getControllerNumber() - 51);
-      break;
+      int sampleIndex = (controllerNumber - 51) % 8;
+      mySamplerVoice.activateSample(sampleIndex);
     }
   }
 
   void selectSample(const juce::MidiMessage &message)
   {
-    switch (message.getControllerNumber())
+    int controllerNumber = message.getControllerNumber();
+
+    if ((controllerNumber >= 51 && controllerNumber <= 58) ||
+        (controllerNumber >= 67 && controllerNumber <= 74) ||
+        (controllerNumber >= 83 && controllerNumber <= 90) ||
+        (controllerNumber >= 99 && controllerNumber <= 106))
     {
-    case 51:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 52:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 53:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 54:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 55:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 56:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 57:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
-    case 58:
-      mySamplerVoice.changeSelectedSample(message.getControllerNumber() - 51);
-      break;
+      int sampleIndex = (controllerNumber - 51) % 8;
+      mySamplerVoice.changeSelectedSample(sampleIndex);
     }
   }
 
@@ -207,7 +173,14 @@ private:
       }
       break;
     case 12:
-      mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeLowPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changePanner(message.getControllerValue());
+      }
       break;
     case 13:
       mySamplerVoice.changeHighPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
