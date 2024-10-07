@@ -78,6 +78,10 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     // PANNER //
     panner[i].prepare(spec);
     panner[i].setRule(juce::dsp::PannerRule::linear);
+
+    // DELAY //
+    delay[i].prepare(spec);
+    delay[i].setMaximumDelayInSamples(static_cast<int>(sampleRate));
   }
 }
 
@@ -220,6 +224,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       panner[voiceIndex].process(context);
       ///// PHASER ////////
       phaser[voiceIndex].process(context);
+      ///// DELAY ////////
+      // delay[voiceIndex].process(context);
 
       adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
 
@@ -472,4 +478,12 @@ void MySamplerVoice::changePhaser(double knobValue)
   phaser[*selectedSample].setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
   phaser[*selectedSample].setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
   phaser[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));                                       // Mix between dry (0) and wet (1)
+}
+
+void MySamplerVoice::changeDelay(int knobValue)
+{
+  knobValue = juce::jlimit(0, 127, knobValue);
+  float maxDelayInSeconds = 1.0f; // 1 second max delay
+  float delayValue = (static_cast<float>(knobValue) / 127.0f) * maxDelayInSeconds * mSampleRate;
+  delay[*selectedSample].setDelay(delayValue);
 }

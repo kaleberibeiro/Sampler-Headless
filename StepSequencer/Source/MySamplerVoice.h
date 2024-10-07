@@ -68,12 +68,22 @@ public:
   void changeFlanger(double knobValue);
   void changePhaser(double knobValue);
   void changePanner(int knobValue);
+  void changeDelay(int knobValue);
   void changePitchShift(int sampleIndex, int knobValue)
   {
     float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
     pitchShiftFactors[sampleIndex] = pitchShift;
     interpolators[sampleIndex].reset();
   }
+
+  void changeBPM(int knobValue)
+  {
+    knobValue = juce::jlimit(0, 127, knobValue);
+
+    mBpm = 60 + ((static_cast<float>(knobValue) / 127.0f) * (210 - 60));
+    std::cout << "BPM: " << mBpm << std::endl;
+    startTimer(1000 / ((mBpm / 60.f) * 4));
+  };
 
   void playSequence()
   {
@@ -129,7 +139,7 @@ private:
   int mTotalSamples{0};
   double mSampleRate{0};
   int mUpdateInterval{0};
-  double mBpm{140.0};
+  int mBpm{140};
   int mSamplesRemaining{0};
   int currentSequenceIndex{0};
   int sequenceSize{64};
@@ -148,6 +158,7 @@ private:
   std::array<juce::dsp::Chorus<float>, 8> flanger;
   std::array<juce::dsp::Panner<float>, 8> panner;
   std::array<juce::dsp::Phaser<float>, 8> phaser;
+  std::array<juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>, 8> delay;
   std::array<juce::LinearInterpolator, 8> interpolators;
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();

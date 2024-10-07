@@ -44,6 +44,8 @@ public:
         handleOtherControllers(message);
       }
     }
+
+    std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -193,10 +195,24 @@ private:
       }
       break;
     case 14:
-      mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeDelay(message.getControllerValue());
+      }
       break;
     case 15:
-      mySamplerVoice.changeReverb(message.getControllerValue());
+      if (knobPage == 1)
+      {
+        mySamplerVoice.changeReverb(message.getControllerValue());
+      }
+      else if (knobPage == 2)
+      {
+        mySamplerVoice.changeBPM(message.getControllerValue());
+      }
       break;
     case 16:
       break;
