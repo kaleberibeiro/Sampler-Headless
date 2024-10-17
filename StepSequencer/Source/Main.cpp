@@ -52,7 +52,6 @@ private:
   juce::Synthesiser &mySynth;
   MySamplerVoice &mySamplerVoice;
   juce::AudioIODevice *device;
-  juce::AudioSourceChannelInfo channelInfo;
   int count = 0;
   bool isShiftPressed = false;
   bool isSampleSelectedPressed = false;
@@ -273,7 +272,6 @@ public:
   {
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
     juce::MidiBuffer midiBuffer;
-    mySamplerVoice.bpmTrack(inputChannelData, numInputChannels, numSamples);
     mySamplerVoice.countSamples(outputBuffer, 0, outputBuffer.getNumSamples());
   }
 
@@ -281,7 +279,6 @@ private:
   juce::Synthesiser &mySynth;
   MySamplerVoice &mySamplerVoice;
   juce::AudioIODevice *device;
-  juce::AudioSourceChannelInfo channelInfo;
   int count = 0;
 };
 
@@ -301,7 +298,7 @@ int main()
   devmgr.initialiseWithDefaultDevices(1, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
-  Metronome metronome(&mySynth);
+  // Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
   std::vector<int> lengthInSamples;
   juce::BigInteger range;
@@ -359,12 +356,6 @@ int main()
     MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
     MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
     devmgr.addAudioCallback(&audioCallback);
-
-    // std::cout << "Available Input Devices:" << std::endl;
-    // for (int i = 0; i < availableInputDevices.size(); ++i)
-    // {
-    //   std::cout << i << ": " << availableInputDevices[i].toStdString() << std::endl;
-    // }
 
     int lastInputIndex = 0;
     auto list = juce::MidiInput::getAvailableDevices();

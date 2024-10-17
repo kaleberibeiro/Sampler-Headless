@@ -123,55 +123,6 @@ public:
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
-  void bpmTrack(const float *const *inputChannelData, int numInputChannels, int numSamples)
-  {
-    using namespace std::chrono;
-
-    for (int channel = 0; channel < numInputChannels; ++channel)
-    {
-      const float *inputData = inputChannelData[channel];
-
-      if (inputData != nullptr)
-      {
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-          float amplitude = std::abs(inputData[sample]);
-
-          // Smooth the amplitude for better precision
-          static double smoothedAmplitude = amplitude;
-          smoothedAmplitude = SMOOTHING_FACTOR * amplitude + (1.0 - SMOOTHING_FACTOR) * smoothedAmplitude;
-
-          // Check for spike (e.g., smoothed amplitude > threshold)
-          if (smoothedAmplitude > THRESHOLD)
-          {
-            auto currentSpikeTime = high_resolution_clock::now();
-            auto durationSinceLastSpike = std::chrono::duration_cast<std::chrono::microseconds>(currentSpikeTime - lastSpikeTime).count();
-
-            if (durationSinceLastSpike > MIN_INTERVAL_MS * 1000) // Convert milliseconds to microseconds
-            {
-              double intervalInSeconds = durationSinceLastSpike / 1'000'000.0; // Convert microseconds to seconds
-              spikeIntervals.push_back(intervalInSeconds);
-
-              // Limit the size of the deque to avoid memory overflow
-              if (spikeIntervals.size() > MAX_INTERVALS)
-              {
-                spikeIntervals.pop_front(); // Remove the oldest interval
-              }
-
-              lastSpikeTime = currentSpikeTime;
-
-              // Calculate BPM if we have enough intervals
-              if (spikeIntervals.size() >= 2)
-              {
-                calculateBPM();
-              }
-            }
-          }
-        }
-      }
-    }
-  };
-
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
@@ -212,37 +163,4 @@ private:
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();
 
-  std::deque<double> spikeIntervals;
-  std::chrono::high_resolution_clock::time_point lastSpikeTime = std::chrono::high_resolution_clock::now();
-  const int MAX_INTERVALS = 12;        // Larger window for more stable BPM
-  const double THRESHOLD = 0.4;        // Amplitude threshold
-  const int MIN_INTERVAL_MS = 300;     // Reduced to detect spikes faster
-  const double SMOOTHING_FACTOR = 0.4; // EWMA constant for smoothing
-  double smoothedBPM = 0.0;
-
-  void calculateBPM()
-  {
-    // Sort intervals and remove outliers
-    std::deque<double> sortedIntervals(spikeIntervals);
-    std::sort(sortedIntervals.begin(), sortedIntervals.end());
-
-    // Optionally discard extreme values (outliers)
-    if (sortedIntervals.size() > 4)
-    {
-      sortedIntervals.pop_front(); // Remove the smallest (fastest) interval
-      sortedIntervals.pop_back();  // Remove the largest (slowest) interval
-    }
-
-    // Calculate the average interval
-    double sumIntervals = std::accumulate(sortedIntervals.begin(), sortedIntervals.end(), 0.0);
-    double averageInterval = sumIntervals / sortedIntervals.size();
-    double bpm = 60.0 / averageInterval;
-
-    // Smooth the BPM using exponential weighted moving average (EWMA)
-    smoothedBPM = SMOOTHING_FACTOR * bpm + (1.0 - SMOOTHING_FACTOR) * smoothedBPM;
-
-    // Cast the smoothed BPM to an integer for final output
-    int finalBPM = static_cast<int>(std::round(smoothedBPM));
-    std::cout << "Estimated BPM: " << finalBPM << std::endl;
-  }
 };
