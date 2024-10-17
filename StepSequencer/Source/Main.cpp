@@ -19,14 +19,15 @@ public:
     if (message.isController())
     {
       handleMomentaryBtn(message);
+      handleMuteBtn(message);
 
       if (isShiftPressed)
       {
-        activateSample(message);
+        selectSample(message);
       }
       else if (isSampleSelectedPressed)
       {
-        selectSample(message);
+        selectPattern(message);
       }
       else if (isSamplePlay)
       {
@@ -57,8 +58,20 @@ private:
   bool isSampleSelectedPressed = false;
   bool isSamplePlay = false;
   bool momentaryBtnStates[8] = {false};
+  const int muteSamplesBtnIndex[8] = {18, 21, 24, 27, 30, 33, 36, 39};
   const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
   int knobPage = 1;
+
+  void handleMuteBtn(const juce::MidiMessage &message)
+  {
+    for (int i = 0; i < 8; ++i)
+    {
+      if (message.getControllerNumber() == muteSamplesBtnIndex[i])
+      {
+        mySamplerVoice.activateSample(i, message.getControllerValue());
+      }
+    }
+  }
 
   void handleMomentaryBtn(const juce::MidiMessage &message)
   {
@@ -84,7 +97,7 @@ private:
     }
   }
 
-  void activateSample(const juce::MidiMessage &message)
+  void selectPattern(const juce::MidiMessage &message)
   {
     int controllerNumber = message.getControllerNumber();
 
@@ -93,8 +106,8 @@ private:
         (controllerNumber >= 83 && controllerNumber <= 90) ||
         (controllerNumber >= 99 && controllerNumber <= 106))
     {
-      int sampleIndex = (controllerNumber - 51) % 8;
-      mySamplerVoice.activateSample(sampleIndex);
+      int patternIndex = (controllerNumber - 51) % 8;
+      mySamplerVoice.changeSelectedSequence(patternIndex);
     }
   }
 
@@ -295,7 +308,7 @@ bool keyPressed()
 int main()
 {
   juce::AudioDeviceManager devmgr;
-  devmgr.initialiseWithDefaultDevices(1, 2);
+  devmgr.initialiseWithDefaultDevices(0, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
   // Metronome metronome(&mySynth);
@@ -306,10 +319,8 @@ int main()
 
   mAudioFormatManager.registerBasicFormats();
 
-  // Caminho para a pasta "Samples"
   juce::File samplesFolder{juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("Samples")};
 
-  // Verifica se a pasta existe
   if (!samplesFolder.exists() || !samplesFolder.isDirectory())
   {
     std::cerr << "A pasta 'Samples' não foi encontrada no ambiente de trabalho!" << std::endl;

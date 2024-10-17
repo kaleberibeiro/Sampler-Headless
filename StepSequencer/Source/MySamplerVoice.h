@@ -10,7 +10,7 @@ public:
         sampleStart(8, 0),
         sampleLength(8, *lengthInSamples),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
-        sequences(8, std::vector<int>(64, 0))
+        sequences(8, std::vector<std::vector<int>>(8, std::vector<int>(64, 0)))
   {
   }
 
@@ -28,7 +28,7 @@ public:
   void countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
-  void activateSample(int sample);
+  void activateSample(int sample, int sampleValue);
   void hiResTimerCallback() override;
   void playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void playSample(int sampleIndex, int sampleCommand)
@@ -57,6 +57,11 @@ public:
     int maxLength = lengthInSamples[*selectedSample];
     int startPosition = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
     sampleStart[*selectedSample] = static_cast<float>(startPosition);
+  }
+
+  void changeSelectedSequence(int pattern)
+  {
+    selectedPattern[*selectedSample] = pattern;
   }
 
   void changeAdsrValues(int knobValue, int adsrParam);
@@ -118,7 +123,19 @@ public:
 
   void updateSampleIndex(int indexPosition, int padValue)
   {
-    sequences[*selectedSample][indexPosition] = !sequences[*selectedSample][indexPosition];
+    std::cout << "Sample selected: " << *selectedSample << std::endl;
+    std::cout << "Selected sequence: " << selectedPattern[*selectedSample] << std::endl;
+    auto vec = sequences[*selectedSample][selectedPattern[*selectedSample]];
+
+    std::cout << "[";
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
+      std::cout << vec[i];
+      if (i < vec.size() - 1)
+        std::cout << ", ";
+    }
+    std::cout << "]" << std::endl;
+    sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition] = !sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition];
   };
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
@@ -145,7 +162,8 @@ private:
   int sequenceSize{64};
   int size{8};
   bool sequencePlaying{false};
-  std::vector<std::vector<int>> sequences;
+  std::vector<std::vector<std::vector<int>>> sequences;
+  std::array<int, 8> selectedPattern = {};
   std::array<int, 8> samplesPosition = {0};
   std::array<bool, 8> sampleOn = {false};
   std::array<bool, 8> sampleMakeNoise = {false};
@@ -162,5 +180,4 @@ private:
   std::array<juce::LinearInterpolator, 8> interpolators;
   std::array<float, 8> pitchShiftFactors = {1.0};
   void updateSamplesActiveState();
-
 };

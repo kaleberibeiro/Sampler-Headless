@@ -103,7 +103,7 @@ void MySamplerVoice::updateSamplesActiveState()
 {
   for (int i = 0; i < size; ++i)
   {
-    if (sequences[i][currentSequenceIndex] == 1 && sampleOn[i])
+    if (sequences[i][selectedPattern[i]][currentSequenceIndex] == 1 && sampleOn[i])
     {
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
@@ -367,11 +367,10 @@ void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
   adsrList[*selectedSample].setParameters(currentParams);
 }
 
-void MySamplerVoice::activateSample(int sample)
+void MySamplerVoice::activateSample(int sample, int sampleValue)
 {
-  if (sampleOn[sample])
+  if (sampleValue == 0)
   {
-    // adsrList[sample].noteOff();
     sampleOn[sample] = false;
   }
   else
