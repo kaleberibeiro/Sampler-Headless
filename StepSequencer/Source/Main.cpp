@@ -46,7 +46,7 @@ public:
       }
     }
 
-    std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -284,7 +284,6 @@ public:
                                         const juce::AudioIODeviceCallbackContext &context) override
   {
     juce::AudioBuffer<float> outputBuffer(outputChannelData, numOutputChannels, numSamples);
-    juce::MidiBuffer midiBuffer;
     mySamplerVoice.countSamples(outputBuffer, 0, outputBuffer.getNumSamples());
   }
 
@@ -393,7 +392,10 @@ int main()
 
     while (playAudio)
     {
-      // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+      if (devmgr.getCpuUsage() > 0.6)
+      {
+        // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+      }
       // Check if a key is pressed to stop audio playback
       if (keyPressed())
       {

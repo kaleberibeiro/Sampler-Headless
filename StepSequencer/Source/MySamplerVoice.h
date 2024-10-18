@@ -61,7 +61,14 @@ public:
 
   void changeSelectedSequence(int pattern)
   {
-    selectedPattern[*selectedSample] = pattern;
+    if (currentPatternIndex[*selectedSample] == 0)
+    {
+      selectedPattern[*selectedSample] = pattern;
+    }
+    else
+    {
+      cachedPattern[*selectedSample] = pattern;
+    }
   }
 
   void changeAdsrValues(int knobValue, int adsrParam);
@@ -104,11 +111,10 @@ public:
   {
     stopTimer();
     sequencePlaying = false;
-    currentSequenceIndex = 0;
 
     for (int i = 0; i < size; i++)
     {
-      // samplesPosition[i] = 0;
+      currentPatternIndex[i] = 0;
       sampleMakeNoise[i] = false;
       adsrList[i].noteOff();
     }
@@ -123,18 +129,6 @@ public:
 
   void updateSampleIndex(int indexPosition, int padValue)
   {
-    std::cout << "Sample selected: " << *selectedSample << std::endl;
-    std::cout << "Selected sequence: " << selectedPattern[*selectedSample] << std::endl;
-    auto vec = sequences[*selectedSample][selectedPattern[*selectedSample]];
-
-    std::cout << "[";
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-      std::cout << vec[i];
-      if (i < vec.size() - 1)
-        std::cout << ", ";
-    }
-    std::cout << "]" << std::endl;
     sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition] = !sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition];
   };
 
@@ -158,12 +152,12 @@ private:
   int mUpdateInterval{0};
   int mBpm{140};
   int mSamplesRemaining{0};
-  int currentSequenceIndex{0};
-  int sequenceSize{64};
   int size{8};
   bool sequencePlaying{false};
   std::vector<std::vector<std::vector<int>>> sequences;
   std::array<int, 8> selectedPattern = {};
+  std::array<int, 8> cachedPattern = {-1, -1, -1, -1, -1, -1, -1, -1};
+  std::array<int, 8> currentPatternIndex = {0};
   std::array<int, 8> samplesPosition = {0};
   std::array<bool, 8> sampleOn = {false};
   std::array<bool, 8> sampleMakeNoise = {false};

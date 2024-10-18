@@ -42,8 +42,6 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   // PREPARE IIR FILTER
   for (int i = 0; i < size; i++)
   {
-    smoothGainRamp[i].reset(sampleRate, 0.01);
-    smoothGainRamp[i].setTargetValue(0.5);
     previousGain[i] = 0.5;
 
     duplicatorsLowPass[i].prepare(spec);
@@ -89,21 +87,14 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
 {
   buffer.clear();
 
-  if (sequencePlaying)
-  {
-    triggerSamples(buffer, startSample, numSamples);
-  }
-  else
-  {
-    playSampleProcess(buffer, startSample, numSamples);
-  }
+  triggerSamples(buffer, startSample, numSamples);
 }
 
 void MySamplerVoice::updateSamplesActiveState()
 {
   for (int i = 0; i < size; ++i)
   {
-    if (sequences[i][selectedPattern[i]][currentSequenceIndex] == 1 && sampleOn[i])
+    if (sequences[i][selectedPattern[i]][currentPatternIndex[i]] == 1 && sampleOn[i])
     {
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
@@ -124,14 +115,43 @@ void MySamplerVoice::hiResTimerCallback()
 {
   if (sequencePlaying)
   {
-    if (currentSequenceIndex >= sequenceSize)
+    for (int i = 0; i < size; i++)
     {
-      currentSequenceIndex = 0;
+      int sequenceLength = sequences[i][selectedPattern[i]].size();
+
+      if (currentPatternIndex[i] >= sequenceLength)
+      {
+        currentPatternIndex[i] = 0;
+
+        if (cachedPattern[i] != -1)
+        {
+          selectedPattern[i] = cachedPattern[i];
+          cachedPattern[i] = -1;
+        }
+      }
     }
 
     updateSamplesActiveState();
 
-    currentSequenceIndex++;
+    for (int i = 0; i < size; i++)
+    {
+      currentPatternIndex[i]++;
+    }
+  }
+}
+
+void MySamplerVoice::activateSample(int sample, int sampleValue)
+{
+  if (sampleValue == 0)
+  {
+    sampleOn[sample] = false;
+    smoothGainRamp[sample].reset(mSampleRate, 0.03);
+    smoothGainRamp[sample].setTargetValue(0.0f);
+  }
+  else
+  {
+    sampleOn[sample] = true;
+    smoothGainRamp[sample].reset(mSampleRate, 0.0);
   }
 }
 
@@ -142,14 +162,15 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
   // Prepare a batch buffer for processing all voices together
   juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
   batchBuffer.clear();
+  juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
-    juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
     sampleBuffer.clear();
 
     juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
     juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
+
     if (samplerSound != nullptr)
     {
       if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
@@ -157,39 +178,28 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         adsrList[voiceIndex].noteOn();
       }
 
-      if (!sampleMakeNoise[voiceIndex])
-      {
-        smoothGainRamp[voiceIndex].setTargetValue(0.0);
-      }
-      else
-      {
-        smoothGainRamp[voiceIndex].setTargetValue(previousGain[voiceIndex]);
-      }
+      smoothGainRamp[voiceIndex].setTargetValue(sampleMakeNoise[voiceIndex] ? previousGain[voiceIndex] : 0.0f);
+
+      const int soundChannels = samplerSound->getAudioData()->getNumChannels();
 
       for (int sample = 0; sample < numSamples; ++sample)
       {
         float gainValue = smoothGainRamp[voiceIndex].getNextValue();
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
-          const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
+          const int soundChannelIndex = channel % soundChannels;
           const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
           float finalSamples = audioData[samplesPosition[voiceIndex]] * gainValue;
           sampleBuffer.addSample(channel, startSample + sample, finalSamples);
         }
 
-        if (sampleMakeNoise[voiceIndex])
+        if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
         {
-          if (samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex])
-          {
-            if (adsrList[voiceIndex].getNextSample() >= 1)
-            {
-              adsrList[voiceIndex].noteOff();
-            }
-          }
-          else
-          {
-            ++samplesPosition[voiceIndex];
-          }
+          ++samplesPosition[voiceIndex];
+        }
+        else if (adsrList[voiceIndex].getNextSample() >= 1)
+        {
+          adsrList[voiceIndex].noteOff();
         }
       }
 
@@ -365,21 +375,6 @@ void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
   }
 
   adsrList[*selectedSample].setParameters(currentParams);
-}
-
-void MySamplerVoice::activateSample(int sample, int sampleValue)
-{
-  if (sampleValue == 0)
-  {
-    sampleOn[sample] = false;
-  }
-  else
-  {
-    sampleOn[sample] = true;
-    samplesPosition[sample] = 0;
-    adsrList[sample].reset();
-    adsrList[sample].noteOn();
-  }
 }
 
 void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
