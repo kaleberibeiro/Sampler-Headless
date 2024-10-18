@@ -392,9 +392,9 @@ int main()
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.6)
+      if (devmgr.getCpuUsage() > 0.8)
       {
-        // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+        std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
       // Check if a key is pressed to stop audio playback
       if (keyPressed())

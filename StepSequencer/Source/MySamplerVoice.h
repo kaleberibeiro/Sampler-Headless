@@ -92,7 +92,7 @@ public:
   {
     knobValue = juce::jlimit(0, 127, knobValue);
 
-    mBpm = 60 + ((static_cast<float>(knobValue) / 127.0f) * (210 - 60));
+    mBpm = 80 + ((static_cast<float>(knobValue) / 127.0f) * (207 - 80));
     std::cout << "BPM: " << mBpm << std::endl;
     startTimer(1000 / ((mBpm / 60.f) * 4));
   };
