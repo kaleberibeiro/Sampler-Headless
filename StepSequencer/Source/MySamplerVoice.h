@@ -8,10 +8,14 @@ public:
       : mySynth(mySynth),
         lengthInSamples(lengthInSamples),
         sampleStart(8, 0),
-        sampleLength(8, *lengthInSamples),
+        // sampleLength(8, *lengthInSamples),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
         sequences(8, std::vector<std::vector<int>>(8, std::vector<int>(64, 0)))
   {
+    for (int i = 0; i < 8; ++i)
+    {
+      sampleLength[i] = lengthInSamples[i];
+    }
   }
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
@@ -72,13 +76,13 @@ public:
   }
 
   void changeAdsrValues(int knobValue, int adsrParam);
-  void changeLowPassFilter(double sampleRate, double knobValue);
-  void changeHighPassFilter(double sampleRate, double knobValue);
-  void changeBandPassFilter(double sampleRate, double knobValue);
-  void changeReverb(double knobValue);
-  void changeChorus(double knobValue);
-  void changeFlanger(double knobValue);
-  void changePhaser(double knobValue);
+  void changeLowPassFilter(double sampleRate, int knobValue);
+  void changeHighPassFilter(double sampleRate, int knobValue);
+  void changeBandPassFilter(double sampleRate, int knobValue);
+  void changeReverb(int knobValue);
+  void changeChorus(int knobValue);
+  void changeFlanger(int knobValue);
+  void changePhaser(int knobValue);
   void changePanner(int knobValue);
   void changeDelay(int knobValue);
   void changePitchShift(int sampleIndex, int knobValue)
@@ -93,7 +97,6 @@ public:
     knobValue = juce::jlimit(0, 127, knobValue);
 
     mBpm = 80 + ((static_cast<float>(knobValue) / 127.0f) * (207 - 80));
-    std::cout << "BPM: " << mBpm << std::endl;
     startTimer(1000 / ((mBpm / 60.f) * 4));
   };
 
@@ -134,6 +137,11 @@ public:
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
+  void saveData();
+  void loadData();
+  void clearPattern();
+  void clearSampleModulation();
+
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
@@ -163,7 +171,7 @@ private:
   std::array<bool, 8> sampleMakeNoise = {false};
   std::array<bool, 8> samplesPressed = {false};
   std::vector<int> sampleStart;
-  std::vector<int> sampleLength;
+  std::array<int, 8> sampleLength;
   std::array<juce::ADSR, 8> adsrList;
   std::array<juce::dsp::Reverb, 8> reverbs;
   std::array<juce::dsp::Chorus<float>, 8> chorus;
@@ -172,6 +180,11 @@ private:
   std::array<juce::dsp::Phaser<float>, 8> phaser;
   std::array<juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>, 8> delay;
   std::array<juce::LinearInterpolator, 8> interpolators;
-  std::array<float, 8> pitchShiftFactors = {1.0};
+  std::array<float, 8> pitchShiftFactors = {0};
+  std::array<int, 8> lastReverbKnob = {0};
+  std::array<int, 8> lastChorusKnob = {0};
+  std::array<int, 8> lastFlangerKnob = {0};
+  std::array<int, 8> lastPannerKnob = {0};
+  std::array<int, 8> lastPhaserKnob = {0};
   void updateSamplesActiveState();
 };

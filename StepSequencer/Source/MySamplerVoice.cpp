@@ -81,6 +81,8 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     delay[i].prepare(spec);
     delay[i].setMaximumDelayInSamples(static_cast<int>(sampleRate));
   }
+
+  loadData();
 }
 
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
@@ -381,7 +383,7 @@ void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
   adsrList[*selectedSample].setParameters(currentParams);
 }
 
-void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
+void MySamplerVoice::changeLowPassFilter(double sampleRate, int knobValue)
 {
   double minFreq = 100.0;
   double maxFreq = 10000.0;
@@ -391,7 +393,7 @@ void MySamplerVoice::changeLowPassFilter(double sampleRate, double knobValue)
   smoothLowRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
-void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
+void MySamplerVoice::changeHighPassFilter(double sampleRate, int knobValue)
 {
   double minFreq = 20.0;
   double maxFreq = 5000.0;
@@ -401,7 +403,7 @@ void MySamplerVoice::changeHighPassFilter(double sampleRate, double knobValue)
   smoothHighRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
-void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
+void MySamplerVoice::changeBandPassFilter(double sampleRate, int knobValue)
 {
   double minFreq = 500.0;
   double maxFreq = 4000.0;
@@ -411,7 +413,7 @@ void MySamplerVoice::changeBandPassFilter(double sampleRate, double knobValue)
   smoothBandRamps[*selectedSample].setTargetValue(cutoffFrequency);
 }
 
-void MySamplerVoice::changeReverb(double knobValue)
+void MySamplerVoice::changeReverb(int knobValue)
 {
   if (knobValue == 0)
   {
@@ -434,10 +436,12 @@ void MySamplerVoice::changeReverb(double knobValue)
     revParams.freezeMode = 0.0f;                                                    // Disabled
 
     reverbs[*selectedSample].setParameters(revParams);
+
+    lastReverbKnob[*selectedSample] = knobValue;
   }
 }
 
-void MySamplerVoice::changeChorus(double knobValue)
+void MySamplerVoice::changeChorus(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
@@ -447,9 +451,11 @@ void MySamplerVoice::changeChorus(double knobValue)
   chorus[*selectedSample].setRate(juce::jlimit(0.1f, 2.0f, 0.33f + (normalizedValue * 1.0f)));        // Slower modulation rate (BOSS CE-2 ranges from ~0.33Hz to 2Hz)
   chorus[*selectedSample].setCentreDelay(juce::jlimit(5.0f, 10.0f, 5.0f + (normalizedValue * 2.0f))); // Shorter delay for classic chorus (CE-2 is around 5-10 ms delay)
   chorus[*selectedSample].setMix(juce::jlimit(0.0f, 0.6f, normalizedValue));
+
+  lastChorusKnob[*selectedSample] = knobValue;
 }
 
-void MySamplerVoice::changeFlanger(double knobValue)
+void MySamplerVoice::changeFlanger(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
@@ -457,7 +463,9 @@ void MySamplerVoice::changeFlanger(double knobValue)
   flanger[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));   // More pronounced feedback, typical of Boss flangers
   flanger[*selectedSample].setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));        // Slightly faster rate, but not too extreme
   flanger[*selectedSample].setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f))); // Wider delay range for the sweeping flanger effect (more noticeable)
-  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));                       // Full mix from 0 (dry) to 1 (wet)
+  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));
+
+  lastFlangerKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changePanner(int knobValue)
@@ -465,9 +473,11 @@ void MySamplerVoice::changePanner(int knobValue)
   knobValue = juce::jlimit(0, 127, knobValue);
   float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
   panner[*selectedSample].setPan(panningValue);
+
+  lastPannerKnob[*selectedSample] = knobValue;
 }
 
-void MySamplerVoice::changePhaser(double knobValue)
+void MySamplerVoice::changePhaser(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
@@ -475,7 +485,9 @@ void MySamplerVoice::changePhaser(double knobValue)
   phaser[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
   phaser[*selectedSample].setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
   phaser[*selectedSample].setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
-  phaser[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));                                       // Mix between dry (0) and wet (1)
+  phaser[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));
+
+  lastPhaserKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeDelay(int knobValue)
@@ -484,4 +496,260 @@ void MySamplerVoice::changeDelay(int knobValue)
   float maxDelayInSeconds = 1.0f; // 1 second max delay
   float delayValue = (static_cast<float>(knobValue) / 127.0f) * maxDelayInSeconds * mSampleRate;
   delay[*selectedSample].setDelay(delayValue);
+}
+
+void MySamplerVoice::saveData()
+{
+  juce::File file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("data.txt");
+
+  juce::FileOutputStream outputStream(file);
+
+  if (!outputStream.openedOk())
+  {
+    DBG("Error opening file for writing.");
+    return;
+  }
+
+  outputStream.setPosition(0);
+  outputStream.writeText("SEQUENCES:\n", false, false, "\n");
+
+  for (int sampleIndex = 0; sampleIndex < sequences.size(); sampleIndex++)
+  {
+    outputStream.writeText("Sample " + juce::String(sampleIndex) + ":\n", false, false, "\n");
+
+    for (int patternIndex = 0; patternIndex < sequences[sampleIndex].size(); ++patternIndex)
+    {
+      outputStream.writeText("  Pattern " + juce::String(patternIndex) + ": ", false, false, "\n");
+
+      for (int step = 0; step < sequences[sampleIndex][patternIndex].size(); ++step)
+      {
+        outputStream.writeText(juce::String(sequences[sampleIndex][patternIndex][step]) + " ", false, false, "\n");
+      }
+      outputStream.writeText("\n", false, false, "\n");
+    }
+  }
+
+  outputStream.writeText("\nSample stretch:\n", false, false, "\n");
+
+  for (int sampleIndex = 0; sampleIndex < size; sampleIndex++)
+  {
+    outputStream.writeText("Sample " + juce::String(sampleIndex) + ":\n", false, false, "\n");
+    outputStream.writeText("Start=" + juce::String(sampleStart[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("Length=" + juce::String(sampleLength[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("\n", false, false, "\n");
+  }
+
+  outputStream.writeText("\nADSR:\n", false, false, "\n");
+
+  for (int sampleIndex = 0; sampleIndex < size; sampleIndex++)
+  {
+    outputStream.writeText("Sample " + juce::String(sampleIndex) + ":\n", false, false, "\n");
+    outputStream.writeText("Attack=" + juce::String(adsrList[sampleIndex].getParameters().attack) + "\n", false, false, "\n");
+    outputStream.writeText("Decay=" + juce::String(adsrList[sampleIndex].getParameters().decay) + "\n", false, false, "\n");
+    outputStream.writeText("Sustain=" + juce::String(adsrList[sampleIndex].getParameters().sustain) + "\n", false, false, "\n");
+    outputStream.writeText("Release=" + juce::String(adsrList[sampleIndex].getParameters().release) + "\n", false, false, "\n");
+    outputStream.writeText("\n", false, false, "\n");
+  }
+
+  outputStream.writeText("\nFilters:\n", false, false, "\n");
+
+  for (int sampleIndex = 0; sampleIndex < size; sampleIndex++)
+  {
+    outputStream.writeText("Sample " + juce::String(sampleIndex) + ":\n", false, false, "\n");
+    outputStream.writeText("LowPass=" + juce::String(smoothLowRamps[sampleIndex].getCurrentValue()) + "\n", false, false, "\n");
+    outputStream.writeText("HighPass=" + juce::String(smoothHighRamps[sampleIndex].getCurrentValue()) + "\n", false, false, "\n");
+    outputStream.writeText("BandPass=" + juce::String(smoothBandRamps[sampleIndex].getCurrentValue()) + "\n", false, false, "\n");
+    outputStream.writeText("\n", false, false, "\n");
+  }
+
+  outputStream.writeText("\nEffects:\n", false, false, "\n");
+
+  for (int sampleIndex = 0; sampleIndex < size; sampleIndex++)
+  {
+    outputStream.writeText("Sample " + juce::String(sampleIndex) + ":\n", false, false, "\n");
+    outputStream.writeText("Reverb=" + juce::String(lastReverbKnob[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("Chorus=" + juce::String(lastChorusKnob[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("Flanger=" + juce::String(lastFlangerKnob[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("Panner=" + juce::String(lastPannerKnob[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("Phaser=" + juce::String(lastPhaserKnob[sampleIndex]) + "\n", false, false, "\n");
+    outputStream.writeText("\n", false, false, "\n");
+  }
+
+  outputStream.flush();
+
+  DBG("Data successfully saved to " + file.getFullPathName());
+}
+
+void MySamplerVoice::loadData()
+{
+  juce::File file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("data.txt");
+
+  if (!file.existsAsFile())
+  {
+    DBG("Error: data file not found.");
+    return;
+  }
+
+  juce::FileInputStream inputStream(file);
+
+  if (!inputStream.openedOk())
+  {
+    DBG("Error opening file for reading.");
+    return;
+  }
+
+  juce::String line;
+  int sampleIndex = 0;
+  int patternIndex = 0;
+
+  while (!inputStream.isExhausted())
+  {
+    line = inputStream.readNextLine().trim();
+
+    // Load Sequences
+    if (line.startsWith("SEQUENCES:"))
+    {
+      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      {
+        sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        for (patternIndex = 0; patternIndex < sequences[sampleIndex].size(); ++patternIndex)
+        {
+          line = inputStream.readNextLine().trim();
+
+          juce::String trimmedLine = line.fromFirstOccurrenceOf(":", false, false).trim();
+
+          juce::StringArray stepValues;
+          stepValues.addTokens(trimmedLine, false);
+
+          for (int step = 0; step < stepValues.size(); ++step)
+          {
+            sequences[sampleIndex][patternIndex][step] = stepValues[step].getIntValue();
+          }
+        }
+      }
+    }
+
+    // Load Sample Stretch
+    if (line.startsWith("Sample stretch:"))
+    {
+      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      {
+        sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        juce::String startLine = inputStream.readNextLine().trim();
+        sampleStart[sampleIndex] = startLine.fromFirstOccurrenceOf("Start=", false, false).getIntValue();
+
+        juce::String lengthLine = inputStream.readNextLine().trim();
+        sampleLength[sampleIndex] = lengthLine.fromFirstOccurrenceOf("Length=", false, false).getIntValue();
+      }
+    }
+
+    // Load ADSR
+    if (line.startsWith("ADSR:"))
+    {
+      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      {
+        sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        juce::ADSR::Parameters adsrParams;
+        juce::String attackLine = inputStream.readNextLine().trim();
+        adsrParams.attack = attackLine.fromFirstOccurrenceOf("Attack=", false, false).getFloatValue();
+
+        juce::String decayLine = inputStream.readNextLine().trim();
+        adsrParams.decay = decayLine.fromFirstOccurrenceOf("Decay=", false, false).getFloatValue();
+
+        juce::String sustainLine = inputStream.readNextLine().trim();
+        adsrParams.sustain = sustainLine.fromFirstOccurrenceOf("Sustain=", false, false).getFloatValue();
+
+        juce::String releaseLine = inputStream.readNextLine().trim();
+        adsrParams.release = releaseLine.fromFirstOccurrenceOf("Release=", false, false).getFloatValue();
+
+        adsrList[sampleIndex].setParameters(adsrParams);
+      }
+    }
+
+    // Load Filters
+    if (line.startsWith("Filters:"))
+    {
+      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      {
+        sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        juce::String lowPassLine = inputStream.readNextLine().trim();
+        smoothLowRamps[sampleIndex].setCurrentAndTargetValue(lowPassLine.fromFirstOccurrenceOf("LowPass=", false, false).getFloatValue());
+
+        juce::String highPassLine = inputStream.readNextLine().trim();
+        smoothHighRamps[sampleIndex].setCurrentAndTargetValue(highPassLine.fromFirstOccurrenceOf("HighPass=", false, false).getFloatValue());
+
+        juce::String bandPassLine = inputStream.readNextLine().trim();
+        smoothBandRamps[sampleIndex].setCurrentAndTargetValue(bandPassLine.fromFirstOccurrenceOf("BandPass=", false, false).getFloatValue());
+      }
+    }
+
+    // Load Effects
+    if (line.startsWith("Effects:"))
+    {
+      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      {
+        sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        juce::String reverbLine = inputStream.readNextLine().trim();
+        int reverbValue = reverbLine.fromFirstOccurrenceOf("Reverb=", false, false).getIntValue();
+        lastReverbKnob[sampleIndex] = reverbValue;
+        if (reverbValue != 0)
+        {
+          changeReverb(reverbValue);
+        }
+
+        juce::String chorusLine = inputStream.readNextLine().trim();
+        int chorusValue = chorusLine.fromFirstOccurrenceOf("Chorus=", false, false).getIntValue();
+        lastChorusKnob[sampleIndex] = chorusValue;
+        if (chorusValue != 0)
+        {
+          changeChorus(chorusValue);
+        }
+
+        juce::String flangerLine = inputStream.readNextLine().trim();
+        int flangerValue = flangerLine.fromFirstOccurrenceOf("Flanger=", false, false).getIntValue();
+        lastFlangerKnob[sampleIndex] = flangerValue;
+        if (flangerValue != 0)
+        {
+          changeFlanger(flangerValue);
+        }
+
+        juce::String pannerLine = inputStream.readNextLine().trim();
+        int pannerValue = pannerLine.fromFirstOccurrenceOf("Panner=", false, false).getIntValue();
+        lastPannerKnob[sampleIndex] = pannerValue;
+        if (pannerValue != 0)
+        {
+          changePanner(pannerValue);
+        }
+
+        juce::String phaserLine = inputStream.readNextLine().trim();
+        int phaserValue = phaserLine.fromFirstOccurrenceOf("Phaser=", false, false).getIntValue();
+        lastPhaserKnob[sampleIndex] = phaserValue;
+        if (phaserValue != 0)
+        {
+          changePhaser(phaserValue);
+        }
+      }
+    }
+  }
+
+}
+
+void MySamplerVoice::clearPattern()
+{
+  auto& sequence = sequences[*selectedSample][selectedPattern[*selectedSample]];
+
+  for (int i = 0; i < sequence.size(); i++)
+  {
+    sequence[i] = 0;
+  }
+
+}
+
+void MySamplerVoice::clearSampleModulation()
+{
 }

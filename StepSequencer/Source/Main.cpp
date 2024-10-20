@@ -46,7 +46,7 @@ public:
       }
     }
 
-    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -248,11 +248,14 @@ private:
         mySamplerVoice.playSequence();
       }
       break;
-    case 90:
-      mySamplerVoice.changeSampleStart(message.getControllerValue());
+    case 48:
+      mySamplerVoice.saveData();
       break;
-    case 100:
-      mySamplerVoice.changeSampleLength(message.getControllerValue());
+    case 49:
+      mySamplerVoice.clearPattern();
+      break;
+    case 50:
+      mySamplerVoice.clearSampleModulation();
       break;
     }
   }
