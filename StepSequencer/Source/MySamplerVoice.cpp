@@ -213,19 +213,19 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
         ///// IIR FILTERS ///////
-        if (smoothLowRamps[voiceIndex].getCurrentValue() > 0)
+        if (lastLowPassKnob[voiceIndex] != 0)
         {
-          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getCurrentValue());
+          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
           duplicatorsLowPass[voiceIndex].process(context);
         }
-        if (smoothHighRamps[voiceIndex].getCurrentValue() > 0)
+        if (lastHighPassKnob[voiceIndex] != 0)
         {
-          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getCurrentValue());
+          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
           duplicatorsHighPass[voiceIndex].process(context);
         }
-        if (smoothBandRamps[voiceIndex].getCurrentValue() > 0)
+        if (lastBandPassKnob[voiceIndex] != 0)
         {
-          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getCurrentValue());
+          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getNextValue());
           duplicatorsBandPass[voiceIndex].process(context);
         }
 
@@ -391,6 +391,7 @@ void MySamplerVoice::changeLowPassFilter(double sampleRate, int knobValue)
   double cutoffFrequency = (knobValue == 0) ? maxFreq : maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
 
   smoothLowRamps[*selectedSample].setTargetValue(cutoffFrequency);
+  lastLowPassKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeHighPassFilter(double sampleRate, int knobValue)
@@ -401,6 +402,7 @@ void MySamplerVoice::changeHighPassFilter(double sampleRate, int knobValue)
   double cutoffFrequency = (knobValue == 0) ? minFreq : minFreq + (knobValue / 127.0) * (maxFreq - minFreq);
 
   smoothHighRamps[*selectedSample].setTargetValue(cutoffFrequency);
+  lastHighPassKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeBandPassFilter(double sampleRate, int knobValue)
@@ -411,6 +413,7 @@ void MySamplerVoice::changeBandPassFilter(double sampleRate, int knobValue)
   double cutoffFrequency = (knobValue == 0) ? (minFreq + maxFreq) / 2 : maxFreq - (knobValue / 127.0) * (maxFreq - minFreq);
 
   smoothBandRamps[*selectedSample].setTargetValue(cutoffFrequency);
+  lastBandPassKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeReverb(int knobValue)
@@ -470,7 +473,6 @@ void MySamplerVoice::changeFlanger(int knobValue)
 
 void MySamplerVoice::changePanner(int knobValue)
 {
-  knobValue = juce::jlimit(0, 127, knobValue);
   float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
   panner[*selectedSample].setPan(panningValue);
 
@@ -496,6 +498,45 @@ void MySamplerVoice::changeDelay(int knobValue)
   float maxDelayInSeconds = 1.0f; // 1 second max delay
   float delayValue = (static_cast<float>(knobValue) / 127.0f) * maxDelayInSeconds * mSampleRate;
   delay[*selectedSample].setDelay(delayValue);
+}
+
+void MySamplerVoice::clearPattern()
+{
+  auto &sequence = sequences[*selectedSample][selectedPattern[*selectedSample]];
+
+  for (int i = 0; i < sequence.size(); i++)
+  {
+    sequence[i] = 0;
+  }
+}
+
+void MySamplerVoice::clearSampleModulation()
+{
+  juce::ADSR::Parameters defaultADSRParams;
+  defaultADSRParams.attack = 0.0f;
+  defaultADSRParams.decay = 0.1f;
+  defaultADSRParams.sustain = 1.0f;
+  defaultADSRParams.release = 0.1f;
+  adsrList[*selectedSample].setParameters(defaultADSRParams);
+
+  lastLowPassKnob[*selectedSample] = 0;
+  lastHighPassKnob[*selectedSample] = 0;
+  lastBandPassKnob[*selectedSample] = 0;
+
+  lastReverbKnob[*selectedSample] = 0;
+  lastChorusKnob[*selectedSample] = 0;
+  lastFlangerKnob[*selectedSample] = 0;
+  lastPannerKnob[*selectedSample] = 64;
+  lastPhaserKnob[*selectedSample] = 0;
+
+  changeReverb(0);
+  changeChorus(0);
+  changeFlanger(0);
+  changePanner(64);
+  changePhaser(0);
+
+  sampleStart[*selectedSample] = 0;
+  sampleLength[*selectedSample] = lengthInSamples[*selectedSample];
 }
 
 void MySamplerVoice::saveData()
@@ -736,20 +777,4 @@ void MySamplerVoice::loadData()
       }
     }
   }
-
-}
-
-void MySamplerVoice::clearPattern()
-{
-  auto& sequence = sequences[*selectedSample][selectedPattern[*selectedSample]];
-
-  for (int i = 0; i < sequence.size(); i++)
-  {
-    sequence[i] = 0;
-  }
-
-}
-
-void MySamplerVoice::clearSampleModulation()
-{
 }

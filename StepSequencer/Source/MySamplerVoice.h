@@ -186,5 +186,8 @@ private:
   std::array<int, 8> lastFlangerKnob = {0};
   std::array<int, 8> lastPannerKnob = {0};
   std::array<int, 8> lastPhaserKnob = {0};
+  std::array<int, 8> lastLowPassKnob = {0};
+  std::array<int, 8> lastHighPassKnob = {0};
+  std::array<int, 8> lastBandPassKnob = {0};
   void updateSamplesActiveState();
 };
