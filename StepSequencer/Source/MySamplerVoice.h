@@ -52,9 +52,8 @@ public:
   void changeSampleLength(int knobValue)
   {
     int maxLength = lengthInSamples[*selectedSample];
-
     int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
-    sampleLength[*selectedSample] = static_cast<float>(newLength);
+    sampleLength[*selectedSample] = newLength;
   }
   void changeSampleStart(int knobValue)
   {
@@ -72,6 +71,22 @@ public:
     else
     {
       cachedPattern[*selectedSample] = pattern;
+    }
+  }
+
+  void changePatternLength(int value)
+  {
+    int newLength = value + 1;
+
+    std::vector<int> &currentPattern = sequences[*selectedSample][selectedPattern[*selectedSample]];
+
+    if (newLength > currentPattern.size())
+    {
+      currentPattern.resize(newLength, 0);
+    }
+    else if (newLength < currentPattern.size())
+    {
+      currentPattern.resize(newLength);
     }
   }
 
@@ -154,12 +169,8 @@ private:
   std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsHighPass;
   std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsBandPass;
   int *lengthInSamples;
-  int mSamplePosition = 0;
-  int mTotalSamples{0};
   double mSampleRate{0};
-  int mUpdateInterval{0};
   int mBpm{140};
-  int mSamplesRemaining{0};
   int size{8};
   bool sequencePlaying{false};
   std::vector<std::vector<std::vector<int>>> sequences;
@@ -167,9 +178,10 @@ private:
   std::array<int, 8> cachedPattern = {-1, -1, -1, -1, -1, -1, -1, -1};
   std::array<int, 8> currentPatternIndex = {0};
   std::array<int, 8> samplesPosition = {0};
-  std::array<bool, 8> sampleOn = {false};
   std::array<bool, 8> sampleMakeNoise = {false};
+  std::array<bool, 8> previousSampleMakeNoise = {false};
   std::array<bool, 8> samplesPressed = {false};
+  std::array<bool, 8> isSampleMuted = {true, true, true, true, true, true, true, true};
   std::vector<int> sampleStart;
   std::array<int, 8> sampleLength;
   std::array<juce::ADSR, 8> adsrList;

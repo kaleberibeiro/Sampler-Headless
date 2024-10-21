@@ -1,5 +1,5 @@
 /*
-  ==============================================================================
+==============================================================================
 
     SamplerVoice.cpp
     Created: 17 Apr 2024 4:16:17pm
@@ -12,7 +12,6 @@
 void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
   mSampleRate = sampleRate;
-  mUpdateInterval = (60.0 / (mBpm)*mSampleRate);
 
   mySynth->setCurrentPlaybackSampleRate(sampleRate);
 
@@ -98,17 +97,10 @@ void MySamplerVoice::updateSamplesActiveState()
 
   for (int i = 0; i < size; ++i)
   {
-    if (sequences[i][selectedPattern[i]][currentPatternIndex[i]] == 1 && sampleOn[i])
+    if (sequences[i][selectedPattern[i]][currentPatternIndex[i]] == 1 && !isSampleMuted[i])
     {
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
-    }
-    else
-    {
-      if (sampleOn[i] == false)
-      {
-        sampleMakeNoise[i] = false;
-      }
     }
   }
 }
@@ -146,14 +138,13 @@ void MySamplerVoice::activateSample(int sample, int sampleValue)
 {
   if (sampleValue == 0)
   {
-    sampleOn[sample] = false;
+    isSampleMuted[sample] = true;
     smoothGainRamp[sample].reset(mSampleRate, 0.03);
     smoothGainRamp[sample].setTargetValue(0.0f);
   }
   else
   {
-    sampleOn[sample] = true;
-    smoothGainRamp[sample].reset(mSampleRate, 0.0);
+    isSampleMuted[sample] = false;
   }
 }
 
@@ -161,13 +152,12 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 {
   const juce::ScopedLock sl(objectLock);
 
-  // Prepare a batch buffer for processing all voices together
   juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
   batchBuffer.clear();
-  juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
+    juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
     sampleBuffer.clear();
 
     juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
@@ -175,21 +165,49 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
     if (samplerSound != nullptr)
     {
-      if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
+
+      if (sampleMakeNoise[voiceIndex] != previousSampleMakeNoise[voiceIndex]) // Only act if state has changed
       {
-        adsrList[voiceIndex].reset();
-        adsrList[voiceIndex].noteOn();
+        if (sampleMakeNoise[voiceIndex])
+        {
+          smoothGainRamp[voiceIndex].setCurrentAndTargetValue(previousGain[voiceIndex]);
+        }
+        else
+        {
+          smoothGainRamp[voiceIndex].setTargetValue(0.0f);
+        }
+
+        previousSampleMakeNoise[voiceIndex] = sampleMakeNoise[voiceIndex];
       }
 
-      smoothGainRamp[voiceIndex].setTargetValue(sampleMakeNoise[voiceIndex] ? previousGain[voiceIndex] : 0.0f);
-
-      if (smoothGainRamp[voiceIndex].getCurrentValue() != 0 || smoothGainRamp[voiceIndex].getTargetValue() != 0)
+      if ((smoothGainRamp[voiceIndex].getCurrentValue() == 0 || (adsrList[voiceIndex].getNextSample() == 0) && samplesPosition[voiceIndex] >= lengthInSamples[voiceIndex]) && sampleMakeNoise[voiceIndex])
       {
+        sampleMakeNoise[voiceIndex] = false;
+      }
+
+      if ((smoothGainRamp[voiceIndex].getCurrentValue() != 0 || smoothGainRamp[voiceIndex].getTargetValue() != 0) && sampleMakeNoise[voiceIndex])
+      {
+        if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
+        {
+          adsrList[voiceIndex].reset();
+          adsrList[voiceIndex].noteOn();
+
+          duplicatorsLowPass[voiceIndex].reset();
+          duplicatorsHighPass[voiceIndex].reset();
+          duplicatorsBandPass[voiceIndex].reset();
+          reverbs[voiceIndex].reset();
+          chorus[voiceIndex].reset();
+          flanger[voiceIndex].reset();
+          panner[voiceIndex].reset();
+          phaser[voiceIndex].reset();
+        }
+
         const int soundChannels = samplerSound->getAudioData()->getNumChannels();
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
           float gainValue = smoothGainRamp[voiceIndex].getNextValue();
+
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
             const int soundChannelIndex = channel % soundChannels;
@@ -208,11 +226,9 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           }
         }
 
-        ///// AUDIO BLOCK ////////
         juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
         juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
-        ///// IIR FILTERS ///////
         if (lastLowPassKnob[voiceIndex] != 0)
         {
           *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
@@ -229,23 +245,15 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           duplicatorsBandPass[voiceIndex].process(context);
         }
 
-        ///// REVERB ////////
         reverbs[voiceIndex].process(context);
-        ///// CHORUS ////////
         chorus[voiceIndex].process(context);
-        ///// FLANGER ////////
         flanger[voiceIndex].process(context);
-        ///// PANNER ////////
         panner[voiceIndex].process(context);
-        ///// PHASER ////////
         phaser[voiceIndex].process(context);
-        ///// DELAY ////////
-        // delay[voiceIndex].process(context);
 
         adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
       }
 
-      // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
       {
         batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);

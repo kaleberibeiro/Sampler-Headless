@@ -36,6 +36,13 @@ public:
           mySamplerVoice.playSample(message.getControllerNumber() - 51, message.getControllerValue());
         }
       }
+      else if (isPatterLength)
+      {
+        if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
+        {
+          mySamplerVoice.changePatternLength(message.getControllerNumber() - 51);
+        }
+      }
       else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
       {
         mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
@@ -46,7 +53,7 @@ public:
       }
     }
 
-    std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -57,6 +64,7 @@ private:
   bool isShiftPressed = false;
   bool isSampleSelectedPressed = false;
   bool isSamplePlay = false;
+  bool isPatterLength = false;
   bool momentaryBtnStates[8] = {false};
   const int muteSamplesBtnIndex[8] = {18, 21, 24, 27, 30, 33, 36, 39};
   const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
@@ -94,6 +102,10 @@ private:
     else if (message.getControllerNumber() == 47)
     {
       isSamplePlay = (message.getControllerValue() == 127);
+    }
+    else if (message.getControllerNumber() == 44)
+    {
+      isPatterLength = (message.getControllerValue() == 127);
     }
   }
 
@@ -366,13 +378,16 @@ int main()
 
   if (device && device->isOpen())
   {
-    MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
-    MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
-    devmgr.addAudioCallback(&audioCallback);
-
     int lastInputIndex = 0;
     auto list = juce::MidiInput::getAvailableDevices();
     auto midiInputs = juce::MidiInput::getAvailableDevices();
+    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
+
+    for (int i = 0; i < midiOutputs.size(); i++)
+    {
+      std::cout << "MIDI IDENTIFIER: " << midiOutputs[i].identifier << std::endl;
+      std::cout << "MIDI NAME: " << midiOutputs[i].name << std::endl;
+    }
 
     for (int i = 0; i < midiInputs.size(); i++)
     {
@@ -383,13 +398,27 @@ int main()
     auto nanoPad = midiInputs[1];
     auto nanoKontrol = midiInputs[2];
 
+    devmgr.setDefaultMidiOutputDevice(nanoKontrol.identifier);
+
     if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
       devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
     if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
       devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
 
+    MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
+    MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
+    devmgr.addAudioCallback(&audioCallback);
+
     devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
     devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+
+    juce::MidiOutput *midiOutttt = devmgr.getDefaultMidiOutput();
+
+    std::cout << "Midi out: " << devmgr.getDefaultMidiOutputIdentifier() << std::endl;
+
+    juce::MidiMessage offMessage = juce::MidiMessage::controllerEvent(1, 18, 0); // 1 is the channel, 18 is the controller number, and 0 is the value to turn it off.
+
+    midiOutttt->sendMessageNow(offMessage);
 
     bool playAudio = true;
 
