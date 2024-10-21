@@ -132,9 +132,9 @@ public:
 
     for (int i = 0; i < size; i++)
     {
-      currentPatternIndex[i] = 0;
-      sampleMakeNoise[i] = false;
+      smoothGainRamp[i].setTargetValue(0.0f);
       adsrList[i].noteOff();
+      currentPatternIndex[i] = 0;
     }
   };
 
