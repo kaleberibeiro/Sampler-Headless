@@ -43,6 +43,8 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   {
     previousGain[i] = 0.5;
 
+    smoothGainRamp[i].reset(mSampleRate, 0.03);
+
     duplicatorsLowPass[i].prepare(spec);
     duplicatorsHighPass[i].prepare(spec);
     duplicatorsBandPass[i].prepare(spec);
@@ -129,7 +131,9 @@ void MySamplerVoice::hiResTimerCallback()
 
     for (int i = 0; i < size; i++)
     {
-      currentPatternIndex[i]++;
+      int sequenceLength = sequences[i][selectedPattern[i]].size();
+
+      currentPatternIndex[i] = (currentPatternIndex[i] + 1) % sequenceLength;
     }
   }
 }
@@ -440,11 +444,11 @@ void MySamplerVoice::changeReverb(int knobValue)
 
     // Adjust parameters with scaling for balance
     revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
-    revParams.damping = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
-    revParams.width = juce::jlimit(0.0f, 0.6f, normalizedValue * 0.6f);
-    revParams.wetLevel = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.2f);          // Reduced wet level
-    revParams.dryLevel = juce::jlimit(0.0f, 0.5f, 1.0f - (normalizedValue * 0.5f)); // Adjusted dry level
-    revParams.freezeMode = 0.0f;                                                    // Disabled
+    revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
+    revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
+    revParams.wetLevel = juce::jlimit(0.1f, 0.2f, normalizedValue * 0.2f);
+    revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
+    revParams.freezeMode = 0.0f;
 
     reverbs[*selectedSample].setParameters(revParams);
 

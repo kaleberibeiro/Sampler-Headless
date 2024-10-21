@@ -53,7 +53,7 @@ public:
       }
     }
 
-    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -101,11 +101,11 @@ private:
     }
     else if (message.getControllerNumber() == 47)
     {
-      isSamplePlay = (message.getControllerValue() == 127);
+      isPatterLength = (message.getControllerValue() == 127);
     }
     else if (message.getControllerNumber() == 44)
     {
-      isPatterLength = (message.getControllerValue() == 127);
+      isSamplePlay = (message.getControllerValue() == 127);
     }
   }
 
@@ -424,7 +424,7 @@ int main()
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.8)
+      if (devmgr.getCpuUsage() > 0.5)
       {
         std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
