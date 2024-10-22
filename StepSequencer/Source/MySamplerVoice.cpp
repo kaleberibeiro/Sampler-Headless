@@ -115,11 +115,17 @@ void MySamplerVoice::hiResTimerCallback()
     {
       int sequenceLength = sequences[i][selectedPattern[i]].size();
 
-      if (currentPatternIndex[i] >= sequenceLength)
+      if (currentPatternIndex[i] == 0)
       {
-        currentPatternIndex[i] = 0;
+        if (isSequenceChained[i] && !sequenceChain[i].empty())
+        {
+          int currentChainedPattern = sequenceChain[i].front();
+          sequenceChain[i].erase(sequenceChain[i].begin());
+          sequenceChain[i].push_back(currentChainedPattern);
 
-        if (cachedPattern[i] != -1)
+          selectedPattern[i] = currentChainedPattern;
+        }
+        else if (cachedPattern[i] != -1)
         {
           selectedPattern[i] = cachedPattern[i];
           cachedPattern[i] = -1;
@@ -132,7 +138,6 @@ void MySamplerVoice::hiResTimerCallback()
     for (int i = 0; i < size; i++)
     {
       int sequenceLength = sequences[i][selectedPattern[i]].size();
-
       currentPatternIndex[i] = (currentPatternIndex[i] + 1) % sequenceLength;
     }
   }

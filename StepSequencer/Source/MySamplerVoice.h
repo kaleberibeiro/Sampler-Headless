@@ -150,6 +150,25 @@ public:
     sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition] = !sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition];
   };
 
+  void chainPattern(int padValue)
+  {
+    std::vector<int> &currentSequence = sequenceChain[*selectedSample];
+
+    auto it = std::find(currentSequence.begin(), currentSequence.end(), padValue);
+
+    if (it != currentSequence.end())
+    {
+      currentSequence.erase(it);
+    }
+    else
+    {
+      auto insertPosition = std::lower_bound(currentSequence.begin(), currentSequence.end(), padValue);
+      currentSequence.insert(insertPosition, padValue);
+    }
+
+    isSequenceChained[*selectedSample] = currentSequence.size() > 0;
+  }
+
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
   void saveData();
@@ -182,6 +201,8 @@ private:
   std::array<bool, 8> previousSampleMakeNoise = {false};
   std::array<bool, 8> samplesPressed = {false};
   std::array<bool, 8> isSampleMuted = {true, true, true, true, true, true, true, true};
+  std::array<bool, 8> isSequenceChained = {false, false, false, false, false, false, false, false};
+  std::array<std::vector<int>, 8> sequenceChain;
   std::vector<int> sampleStart;
   std::array<int, 8> sampleLength;
   std::array<juce::ADSR, 8> adsrList;

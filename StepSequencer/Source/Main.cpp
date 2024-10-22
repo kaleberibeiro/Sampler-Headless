@@ -25,9 +25,16 @@ public:
       {
         selectSample(message);
       }
-      else if (isSampleSelectedPressed)
+      else if (isSelectSequencePressed)
       {
         selectPattern(message);
+      }
+      else if (isPatternChainning)
+      {
+        if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58)
+        {
+          mySamplerVoice.chainPattern(message.getControllerNumber() - 51);
+        }
       }
       else if (isSamplePlay)
       {
@@ -62,7 +69,8 @@ private:
   juce::AudioIODevice *device;
   int count = 0;
   bool isShiftPressed = false;
-  bool isSampleSelectedPressed = false;
+  bool isSelectSequencePressed = false;
+  bool isPatternChainning = false;
   bool isSamplePlay = false;
   bool isPatterLength = false;
   bool momentaryBtnStates[8] = {false};
@@ -97,7 +105,7 @@ private:
     }
     else if (message.getControllerNumber() == 46)
     {
-      isSampleSelectedPressed = (message.getControllerValue() == 127);
+      isSelectSequencePressed = (message.getControllerValue() == 127);
     }
     else if (message.getControllerNumber() == 47)
     {
@@ -106,6 +114,10 @@ private:
     else if (message.getControllerNumber() == 44)
     {
       isSamplePlay = (message.getControllerValue() == 127);
+    }
+    else if (message.getControllerNumber() == 41)
+    {
+      isPatternChainning = (message.getControllerValue() == 127);
     }
   }
 
