@@ -75,7 +75,7 @@ public:
       }
     }
 
-    std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -457,7 +457,7 @@ int main()
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.5)
+      if (devmgr.getCpuUsage() > 0.2)
       {
         std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }

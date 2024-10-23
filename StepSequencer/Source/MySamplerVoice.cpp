@@ -44,6 +44,7 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     previousGain[i] = 0.5;
 
     smoothGainRamp[i].reset(mSampleRate, 0.03);
+    smoothSampleLength[i].reset(mSampleRate, 0.1);
 
     duplicatorsLowPass[i].prepare(spec);
     duplicatorsHighPass[i].prepare(spec);
@@ -222,16 +223,17 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         for (int sample = 0; sample < numSamples; ++sample)
         {
           float gainValue = smoothGainRamp[voiceIndex].getNextValue();
+          float adsrValue = adsrList[voiceIndex].getNextSample();
 
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
             const int soundChannelIndex = channel % soundChannels;
             const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            float finalSamples = audioData[samplesPosition[voiceIndex]] * gainValue;
+            float finalSamples = audioData[samplesPosition[voiceIndex]] * gainValue * adsrValue;
             sampleBuffer.addSample(channel, startSample + sample, finalSamples);
           }
 
-          if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
+          if (samplesPosition[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
           {
             ++samplesPosition[voiceIndex];
           }
@@ -265,8 +267,6 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         flanger[voiceIndex].process(context);
         panner[voiceIndex].process(context);
         phaser[voiceIndex].process(context);
-
-        adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
       }
 
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)

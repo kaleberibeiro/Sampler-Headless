@@ -17,6 +17,7 @@ public:
     for (int i = 0; i < 8; ++i)
     {
       sampleLength[i] = lengthInSamples[i];
+      smoothSampleLength[i].setCurrentAndTargetValue(lengthInSamples[i]);
     }
   }
 
@@ -72,6 +73,7 @@ public:
     int maxLength = lengthInSamples[*selectedSample];
     int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
     sampleLength[*selectedSample] = newLength;
+    smoothSampleLength[*selectedSample].setTargetValue(newLength);
   }
 
   void changeSampleStart(int knobValue)
@@ -248,6 +250,7 @@ private:
   juce::Synthesiser *mySynth;
   SubstepTimer subStepTimer;
   std::array<float, 8> previousGain;
+  std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothSampleLength;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRamp;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothLowRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothHighRamps;
