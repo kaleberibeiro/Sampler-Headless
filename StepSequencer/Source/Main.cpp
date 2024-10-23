@@ -36,6 +36,21 @@ public:
           mySamplerVoice.chainPattern(message.getControllerNumber() - 51);
         }
       }
+      else if (isSubStepMode)
+      {
+        if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
+        {
+          if(selectedStep == -1)
+          {
+            selectedStep = message.getControllerNumber() - 51;
+          }else{
+            if(message.getControllerNumber() >= 51 && message.getControllerNumber() <= 54){
+              mySamplerVoice.changeSubStep(selectedStep, message.getControllerNumber() - 50);
+              selectedStep = -1;
+            }
+          }
+        }
+      }
       else if (isSamplePlay)
       {
         if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58)
@@ -77,6 +92,8 @@ private:
   const int muteSamplesBtnIndex[8] = {18, 21, 24, 27, 30, 33, 36, 39};
   const int momentaryBtnIndices[8] = {16, 19, 22, 25, 28, 31, 34, 37};
   int knobPage = 1;
+  bool isSubStepMode = false;
+  int selectedStep = -1;
 
   void handleMuteBtn(const juce::MidiMessage &message)
   {
@@ -118,6 +135,10 @@ private:
     else if (message.getControllerNumber() == 41)
     {
       isPatternChainning = (message.getControllerValue() == 127);
+    }
+    else if (message.getControllerNumber() == 42)
+    {
+      isSubStepMode = (message.getControllerValue() == 127);
     }
   }
 

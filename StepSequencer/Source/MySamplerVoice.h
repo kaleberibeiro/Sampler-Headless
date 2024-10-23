@@ -1,6 +1,8 @@
 #pragma once
 #include "../JuceLibraryCode/JuceHeader.h"
 
+// Forward declaration of MySamplerVoice
+
 class MySamplerVoice : public juce::SamplerVoice, juce::HighResolutionTimer
 {
 public:
@@ -8,9 +10,9 @@ public:
       : mySynth(mySynth),
         lengthInSamples(lengthInSamples),
         sampleStart(8, 0),
-        // sampleLength(8, *lengthInSamples),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
-        sequences(8, std::vector<std::vector<int>>(8, std::vector<int>(64, 0)))
+        sequences(8, std::vector<std::vector<std::array<int, 2>>>(8, std::vector<std::array<int, 2>>(64, {0, 1}))),
+        subStepTimer(*this) // Initialize SubstepTimer with this
   {
     for (int i = 0; i < 8; ++i)
     {
@@ -20,13 +22,28 @@ public:
 
   bool canPlaySound(juce::SynthesiserSound *sound) override
   {
-    return true;
+    return true; // Allow all sounds to be played
   }
 
-  void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound *sound, int pitchWheel) override {}
-  void stopNote(float velocity, bool allowTailOff) override {}
-  void pitchWheelMoved(int newValue) override {}
-  void controllerMoved(int controllerNumber, int newValue) override {}
+  void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound *sound, int pitchWheel) override
+  {
+    // Implementation for starting a note
+  }
+
+  void stopNote(float velocity, bool allowTailOff) override
+  {
+    // Implementation for stopping a note
+  }
+
+  void pitchWheelMoved(int newValue) override
+  {
+    // Implementation for pitch wheel movement
+  }
+
+  void controllerMoved(int controllerNumber, int newValue) override
+  {
+    // Implementation for controller movement
+  }
 
   void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
   void countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
@@ -49,12 +66,14 @@ public:
   }
 
   void changeSelectedSample(int sample) { *selectedSample = sample; }
+
   void changeSampleLength(int knobValue)
   {
     int maxLength = lengthInSamples[*selectedSample];
     int newLength = static_cast<int>((static_cast<float>(knobValue) / 127.0f) * maxLength);
     sampleLength[*selectedSample] = newLength;
   }
+
   void changeSampleStart(int knobValue)
   {
     int maxLength = lengthInSamples[*selectedSample];
@@ -78,11 +97,11 @@ public:
   {
     int newLength = value + 1;
 
-    std::vector<int> &currentPattern = sequences[*selectedSample][selectedPattern[*selectedSample]];
+    std::vector<std::array<int, 2>> &currentPattern = sequences[*selectedSample][selectedPattern[*selectedSample]];
 
     if (newLength > currentPattern.size())
     {
-      currentPattern.resize(newLength, 0);
+      currentPattern.resize(newLength, {0, 1});
     }
     else if (newLength < currentPattern.size())
     {
@@ -100,6 +119,7 @@ public:
   void changePhaser(int knobValue);
   void changePanner(int knobValue);
   void changeDelay(int knobValue);
+
   void changePitchShift(int sampleIndex, int knobValue)
   {
     float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
@@ -110,7 +130,6 @@ public:
   void changeBPM(int knobValue)
   {
     knobValue = juce::jlimit(0, 127, knobValue);
-
     mBpm = 80 + ((static_cast<float>(knobValue) / 127.0f) * (207 - 80));
     startTimer(1000 / ((mBpm / 60.f) * 4));
   };
@@ -147,7 +166,9 @@ public:
 
   void updateSampleIndex(int indexPosition, int padValue)
   {
-    sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition] = !sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition];
+    auto &currentArray = sequences[*selectedSample][selectedPattern[*selectedSample]][indexPosition];
+
+    currentArray[0] = currentArray[0] == 0 ? 1 : 0;
   };
 
   void chainPattern(int padValue)
@@ -169,6 +190,13 @@ public:
     isSequenceChained[*selectedSample] = currentSequence.size() > 0;
   }
 
+  void changeSubStep(int stepIndex, int subStepsNumber)
+  {
+    auto &currentArray = sequences[*selectedSample][selectedPattern[*selectedSample]][stepIndex];
+
+    currentArray[1] = subStepsNumber;
+  }
+
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
   void saveData();
@@ -176,9 +204,49 @@ public:
   void clearPattern();
   void clearSampleModulation();
 
+  class SubstepTimer : public juce::HighResolutionTimer
+  {
+  public:
+    SubstepTimer(MySamplerVoice &mySamplerVoice)
+        : mySamplerVoice(mySamplerVoice), sampleIndex(-1), subStepCount(1)
+    {
+    }
+
+    void startForSample(int index, int bpm, int subSteps)
+    {
+      sampleIndex = index;
+      subStepCount = subSteps;
+
+      int interval = 1000 / ((bpm / 60.f) * 4 * subStepCount);
+      startTimer(interval);
+    }
+
+    void hiResTimerCallback() override
+    {
+      if (sampleIndex != -1)
+      {
+        mySamplerVoice.samplesPosition[sampleIndex] = mySamplerVoice.sampleStart[sampleIndex];
+        mySamplerVoice.sampleMakeNoise[sampleIndex] = true;
+      }
+      subStepStart++;
+      if (subStepStart >= subStepCount)
+      {
+        subStepStart = 0;
+        stopTimer();
+      }
+    }
+
+  private:
+    MySamplerVoice &mySamplerVoice;
+    int subStepStart = 0;
+    int sampleIndex;
+    int subStepCount;
+  };
+
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
+  SubstepTimer subStepTimer;
   std::array<float, 8> previousGain;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRamp;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothLowRamps;
@@ -192,7 +260,7 @@ private:
   int mBpm{140};
   int size{8};
   bool sequencePlaying{false};
-  std::vector<std::vector<std::vector<int>>> sequences;
+  std::vector<std::vector<std::vector<std::array<int, 2>>>> sequences;
   std::array<int, 8> selectedPattern = {};
   std::array<int, 8> cachedPattern = {-1, -1, -1, -1, -1, -1, -1, -1};
   std::array<int, 8> currentPatternIndex = {0};
@@ -222,5 +290,6 @@ private:
   std::array<int, 8> lastLowPassKnob = {0};
   std::array<int, 8> lastHighPassKnob = {0};
   std::array<int, 8> lastBandPassKnob = {0};
+
   void updateSamplesActiveState();
 };

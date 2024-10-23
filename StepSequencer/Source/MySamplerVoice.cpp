@@ -99,10 +99,16 @@ void MySamplerVoice::updateSamplesActiveState()
 
   for (int i = 0; i < size; ++i)
   {
-    if (sequences[i][selectedPattern[i]][currentPatternIndex[i]] == 1 && !isSampleMuted[i])
+    auto &currentArray = sequences[i][selectedPattern[i]][currentPatternIndex[i]];
+    if (currentArray[0] == 1 && !isSampleMuted[i])
     {
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
+
+      if (currentArray[1] != 1)
+      {
+        subStepTimer.startForSample(i, mBpm, currentArray[1]);
+      }
     }
   }
 }
@@ -523,7 +529,8 @@ void MySamplerVoice::clearPattern()
 
   for (int i = 0; i < sequence.size(); i++)
   {
-    sequence[i] = 0;
+    sequence[i][0] = 0;
+    sequence[i][1] = 1;
   }
 }
 
@@ -581,7 +588,9 @@ void MySamplerVoice::saveData()
 
       for (int step = 0; step < sequences[sampleIndex][patternIndex].size(); ++step)
       {
-        outputStream.writeText(juce::String(sequences[sampleIndex][patternIndex][step]) + " ", false, false, "\n");
+        // Acessar o array de dois elementos e formatar a saída
+        const auto &stepArray = sequences[sampleIndex][patternIndex][step];
+        outputStream.writeText("[" + juce::String(stepArray[0]) + "," + juce::String(stepArray[1]) + "] ", false, false, "\n");
       }
       outputStream.writeText("\n", false, false, "\n");
     }
@@ -667,14 +676,17 @@ void MySamplerVoice::loadData()
     // Load Sequences
     if (line.startsWith("SEQUENCES:"))
     {
-      while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
+      while (!inputStream.isExhausted() && (line = inputStream.readNextLine().trim()).startsWith("Sample"))
       {
         sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
 
-        for (patternIndex = 0; patternIndex < sequences[sampleIndex].size(); ++patternIndex)
+        // Read patterns associated with the sample
+        for (int patternIndex = 0; patternIndex < sequences[sampleIndex].size(); ++patternIndex)
         {
-          line = inputStream.readNextLine().trim();
+          if (inputStream.isExhausted())
+            break; // Safety check
 
+          line = inputStream.readNextLine().trim();
           juce::String trimmedLine = line.fromFirstOccurrenceOf(":", false, false).trim();
 
           juce::StringArray stepValues;
@@ -682,10 +694,22 @@ void MySamplerVoice::loadData()
 
           for (int step = 0; step < stepValues.size(); ++step)
           {
-            sequences[sampleIndex][patternIndex][step] = stepValues[step].getIntValue();
+            juce::StringArray values;
+
+            // Trim both brackets and then split by comma
+            juce::String stepString = stepValues[step].trimCharactersAtEnd("]").trimCharactersAtStart("[");
+            values.addTokens(stepString, ",", "\"");
+
+            if (values.size() == 2)
+            {
+              sequences[sampleIndex][patternIndex].resize(stepValues.size());          // Ensure we have enough space
+              sequences[sampleIndex][patternIndex][step][0] = values[0].getIntValue(); // First value
+              sequences[sampleIndex][patternIndex][step][1] = values[1].getIntValue(); // Second value
+            }
           }
         }
       }
+      continue; // Go to the next iteration to avoid reading other sections
     }
 
     // Load Sample Stretch
