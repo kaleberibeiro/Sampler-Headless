@@ -31,22 +31,39 @@ public:
       }
       else if (isPatternChainning)
       {
-        if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58)
+        //////// FUNCIONA /////////
+        if ((message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58) && message.getControllerValue() == 127)
         {
-          mySamplerVoice.chainPattern(message.getControllerNumber() - 51);
+          if (message.getControllerValue() == 127)
+          {
+            mySamplerVoice.chainPattern(message.getControllerNumber() - 51);
+          }
         }
       }
       else if (isSubStepMode)
       {
+        //////// FUNCIONA /////////
         if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
         {
-          if(selectedStep == -1)
+          if (message.getControllerValue() == 127)
           {
-            selectedStep = message.getControllerNumber() - 51;
-          }else{
-            if(message.getControllerNumber() >= 51 && message.getControllerNumber() <= 54){
-              mySamplerVoice.changeSubStep(selectedStep, message.getControllerNumber() - 50);
-              selectedStep = -1;
+            if (selectedStep == -1)
+            {
+              selectedStep = message.getControllerNumber() - 51;
+            }
+            else
+            {
+              int controllerNumber = message.getControllerNumber();
+
+              if ((controllerNumber >= 51 && controllerNumber <= 54) ||
+                  (controllerNumber >= 67 && controllerNumber <= 70) ||
+                  (controllerNumber >= 83 && controllerNumber <= 86) ||
+                  (controllerNumber >= 99 && controllerNumber <= 102))
+              {
+                int subStepValue = (controllerNumber - 51) % 4;
+                mySamplerVoice.changeSubStep(selectedStep, subStepValue + 1);
+                selectedStep = -1;
+              }
             }
           }
         }
@@ -60,14 +77,22 @@ public:
       }
       else if (isPatterLength)
       {
+        ///////// FUNCIONA //////////
         if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
         {
-          mySamplerVoice.changePatternLength(message.getControllerNumber() - 51);
+          if (message.getControllerValue() == 127)
+          {
+            mySamplerVoice.changePatternLength(message.getControllerNumber() - 51);
+          }
         }
       }
       else if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 114)
       {
-        mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
+        ////////// FUNCIONA ///////////
+        if (message.getControllerValue() == 127)
+        {
+          mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
+        }
       }
       else
       {
@@ -146,11 +171,13 @@ private:
   {
     int controllerNumber = message.getControllerNumber();
 
-    if ((controllerNumber >= 51 && controllerNumber <= 58) ||
-        (controllerNumber >= 67 && controllerNumber <= 74) ||
-        (controllerNumber >= 83 && controllerNumber <= 90) ||
-        (controllerNumber >= 99 && controllerNumber <= 106))
+    if (((controllerNumber >= 51 && controllerNumber <= 58) ||
+         (controllerNumber >= 67 && controllerNumber <= 74) ||
+         (controllerNumber >= 83 && controllerNumber <= 90) ||
+         (controllerNumber >= 99 && controllerNumber <= 106)) &&
+        message.getControllerValue() == 127)
     {
+      ///////// FUNCIONA /////////
       int patternIndex = (controllerNumber - 51) % 8;
       mySamplerVoice.changeSelectedSequence(patternIndex);
     }
@@ -160,11 +187,13 @@ private:
   {
     int controllerNumber = message.getControllerNumber();
 
-    if ((controllerNumber >= 51 && controllerNumber <= 58) ||
-        (controllerNumber >= 67 && controllerNumber <= 74) ||
-        (controllerNumber >= 83 && controllerNumber <= 90) ||
-        (controllerNumber >= 99 && controllerNumber <= 106))
+    if (((controllerNumber >= 51 && controllerNumber <= 58) ||
+         (controllerNumber >= 67 && controllerNumber <= 74) ||
+         (controllerNumber >= 83 && controllerNumber <= 90) ||
+         (controllerNumber >= 99 && controllerNumber <= 106)) &&
+        message.getControllerValue() == 127)
     {
+      ///////// FUNCIONA ////////////
       int sampleIndex = (controllerNumber - 51) % 8;
       mySamplerVoice.changeSelectedSample(sampleIndex);
     }
@@ -457,7 +486,7 @@ int main()
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.2)
+      if (devmgr.getCpuUsage() > 0.05)
       {
         std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
