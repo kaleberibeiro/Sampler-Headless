@@ -44,6 +44,7 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     previousGain[i] = 0.5;
 
     smoothGainRamp[i].reset(mSampleRate, 0.03);
+    smoothGainRampFinger[i].reset(mSampleRate, 0.03);
     smoothSampleLength[i].reset(mSampleRate, 0.1);
 
     duplicatorsLowPass[i].prepare(spec);
@@ -94,6 +95,11 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   buffer.clear();
 
   triggerSamples(buffer, startSample, numSamples);
+
+  if (!sequencePlaying && fingerMode)
+  {
+    playSampleProcess(buffer, startSample, numSamples);
+  }
 }
 
 void MySamplerVoice::updateSamplesActiveState()
@@ -288,7 +294,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           effectsChain[voiceIndex].setBypassed<2>(true); // Bypass Flanger
         }
 
-        if (lastPannerKnob[voiceIndex] != 0)
+        if (lastPannerKnob[voiceIndex] <= 62 || lastPannerKnob[voiceIndex] >= 66)
         {
           effectsChain[voiceIndex].setBypassed<3>(false); // Ativar Panner
         }
@@ -338,72 +344,117 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
     juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
     if (samplerSound != nullptr)
     {
-      if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
+
+      if (smoothGainRampFinger[voiceIndex].getNextValue() == 0.0)
       {
-        adsrList[voiceIndex].noteOn();
+        sampleMakeNoiseFinger[voiceIndex] = false;
       }
 
-      if (samplesPressed[voiceIndex])
+      if (sampleMakeNoiseFinger[voiceIndex])
       {
-        smoothGainRamp[voiceIndex].setTargetValue(previousGain[voiceIndex]);
-      }
-      else
-      {
-        smoothGainRamp[voiceIndex].setTargetValue(0.0);
-      }
-
-      for (int sample = 0; sample < numSamples; ++sample)
-      {
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        if (samplesPositionFinger[voiceIndex] == sampleStart[voiceIndex])
         {
-          const int soundChannelIndex = channel % samplerSound->getAudioData()->getNumChannels();
-          const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-          float finalSamples = (audioData[samplesPosition[voiceIndex]] * smoothGainRamp[voiceIndex].getNextValue());
-          sampleBuffer.addSample(channel, startSample + sample, finalSamples);
+          adsrList[voiceIndex].reset();
+          adsrList[voiceIndex].noteOn();
+
+          effectsChain[voiceIndex].reset();
+
+          duplicatorsLowPass[voiceIndex].reset();
+          duplicatorsHighPass[voiceIndex].reset();
+          duplicatorsBandPass[voiceIndex].reset();
         }
 
-        if (samplesPressed[voiceIndex])
+        const int soundChannels = samplerSound->getAudioData()->getNumChannels();
+
+        for (int sample = 0; sample < numSamples; ++sample)
         {
-          if (samplesPosition[voiceIndex] < lengthInSamples[voiceIndex])
+          float gainValue = smoothGainRampFinger[voiceIndex].getNextValue();
+          float adsrValue = adsrList[voiceIndex].getNextSample();
+
+          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
-            ++samplesPosition[voiceIndex];
+            const int soundChannelIndex = channel % soundChannels;
+            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
+            float finalSamples = audioData[samplesPositionFinger[voiceIndex]] * gainValue * adsrValue;
+            sampleBuffer.addSample(channel, startSample + sample, finalSamples);
           }
-          else
+
+          if (samplesPositionFinger[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
+          {
+            ++samplesPositionFinger[voiceIndex];
+          }
+          else if (adsrList[voiceIndex].getNextSample() >= 1)
           {
             adsrList[voiceIndex].noteOff();
           }
         }
-      }
 
-      // Continue with filter, reverb, chorus processing, etc.
-      juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
-      juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
+        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
-      // IIR Filter processing
-      if (smoothLowRamps[voiceIndex].getCurrentValue() > 0)
-      {
-        *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getCurrentValue());
-        duplicatorsLowPass[voiceIndex].process(context);
-      }
-      if (smoothHighRamps[voiceIndex].getCurrentValue() > 0)
-      {
-        *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getCurrentValue());
-        duplicatorsHighPass[voiceIndex].process(context);
-      }
-      if (smoothBandRamps[voiceIndex].getCurrentValue() > 0)
-      {
-        *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getCurrentValue());
-        duplicatorsBandPass[voiceIndex].process(context);
-      }
+        if (lastLowPassKnob[voiceIndex] != 0)
+        {
+          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
+          duplicatorsLowPass[voiceIndex].process(context);
+        }
+        if (lastHighPassKnob[voiceIndex] != 0)
+        {
+          *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
+          duplicatorsHighPass[voiceIndex].process(context);
+        }
+        if (lastBandPassKnob[voiceIndex] != 0)
+        {
+          *duplicatorsBandPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeBandPass(mSampleRate, smoothBandRamps[voiceIndex].getNextValue());
+          duplicatorsBandPass[voiceIndex].process(context);
+        }
 
-      // Reverb and Chorus processing
-      reverbs[voiceIndex].process(context);
-      chorus[voiceIndex].process(context);
-      flanger[voiceIndex].process(context);
-      panner[voiceIndex].process(context);
-      phaser[voiceIndex].process(context);
+        if (lastReverbKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<0>(false); // Ativar Reverb
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<0>(true); // Bypass Reverb
+        }
 
-      adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
+        if (lastChorusKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<1>(false); // Ativar Chorus
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<1>(true); // Bypass Chorus
+        }
+
+        if (lastFlangerKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<2>(false); // Ativar Flanger
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<2>(true); // Bypass Flanger
+        }
+
+        if (lastPannerKnob[voiceIndex] <= 62 || lastPannerKnob[voiceIndex] >= 66)
+        {
+          effectsChain[voiceIndex].setBypassed<3>(false); // Ativar Panner
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<3>(true); // Bypass Panner
+        }
+
+        if (lastPhaserKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<4>(false); // Ativar Phaser
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<4>(true); // Bypass Phaser
+        }
+
+        effectsChain[voiceIndex].process(context);
+      }
 
       // Add sample buffer to batch buffer
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)

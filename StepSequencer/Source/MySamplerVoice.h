@@ -57,12 +57,15 @@ public:
   {
     if (sampleCommand == 127)
     {
-      samplesPosition[sampleIndex] = 0;
+      samplesPositionFinger[sampleIndex] = 0;
       samplesPressed[sampleIndex] = true;
+      sampleMakeNoiseFinger[sampleIndex] = true;
+      smoothGainRampFinger[sampleIndex].setCurrentAndTargetValue(previousGain[sampleIndex]);
     }
     else
     {
       samplesPressed[sampleIndex] = false;
+      smoothGainRampFinger[sampleIndex].setTargetValue(0.0f);
     }
   }
 
@@ -202,6 +205,11 @@ public:
     currentArray[1] = subStepsNumber;
   }
 
+  void fingerDrumMode(int stateMode)
+  {
+    fingerMode = stateMode;
+  }
+
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
   void saveData();
@@ -255,6 +263,7 @@ private:
   std::array<float, 8> previousGain;
   std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothSampleLength;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRamp;
+  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRampFinger;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothLowRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothHighRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothBandRamps;
@@ -303,6 +312,8 @@ private:
   std::array<int, 8> lastLowPassKnob = {0};
   std::array<int, 8> lastHighPassKnob = {0};
   std::array<int, 8> lastBandPassKnob = {0};
-
+  bool fingerMode = false;
+  std::array<bool, 8> sampleMakeNoiseFinger = {false};
+  std::array<int, 8> samplesPositionFinger = {0};
   void updateSamplesActiveState();
 };

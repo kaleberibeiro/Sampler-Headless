@@ -20,6 +20,7 @@ public:
     {
       handleMomentaryBtn(message);
       handleMuteBtn(message);
+      handleOtherControllers(message);
 
       if (isShiftPressed)
       {
@@ -68,7 +69,7 @@ public:
           }
         }
       }
-      else if (isSamplePlay)
+      else if (fingerDrumMode)
       {
         if (message.getControllerNumber() >= 51 && message.getControllerNumber() <= 58)
         {
@@ -94,13 +95,9 @@ public:
           mySamplerVoice.updateSampleIndex(message.getControllerNumber() - 51, message.getControllerValue());
         }
       }
-      else
-      {
-        handleOtherControllers(message);
-      }
     }
 
-    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    std::cout << "CC: " << message.getControllerNumber() << std::endl;
   }
 
 private:
@@ -111,7 +108,7 @@ private:
   bool isShiftPressed = false;
   bool isSelectSequencePressed = false;
   bool isPatternChainning = false;
-  bool isSamplePlay = false;
+  bool fingerDrumMode = false;
   bool isPatterLength = false;
   bool momentaryBtnStates[8] = {false};
   const int muteSamplesBtnIndex[8] = {18, 21, 24, 27, 30, 33, 36, 39};
@@ -155,7 +152,8 @@ private:
     }
     else if (message.getControllerNumber() == 44)
     {
-      isSamplePlay = (message.getControllerValue() == 127);
+      fingerDrumMode = (message.getControllerValue() == 127);
+      mySamplerVoice.fingerDrumMode(message.getControllerValue() == 127);
     }
     else if (message.getControllerNumber() == 41)
     {
