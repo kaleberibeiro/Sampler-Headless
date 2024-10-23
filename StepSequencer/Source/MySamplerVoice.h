@@ -277,6 +277,12 @@ private:
   std::vector<int> sampleStart;
   std::array<int, 8> sampleLength;
   std::array<juce::ADSR, 8> adsrList;
+  std::array<juce::dsp::ProcessorChain<juce::dsp::Reverb, 
+    juce::dsp::Chorus<float>, 
+    juce::dsp::Chorus<float>, 
+    juce::dsp::Panner<float>, 
+    juce::dsp::Phaser<float>
+  >, 8> effectsChain;
   std::array<juce::dsp::Reverb, 8> reverbs;
   std::array<juce::dsp::Chorus<float>, 8> chorus;
   std::array<juce::dsp::Chorus<float>, 8> flanger;

@@ -53,6 +53,8 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     duplicatorsHighPass[i].reset();
     duplicatorsBandPass[i].reset();
 
+    effectsChain[i].prepare(spec);
+
     // REVERB SETUP //
     reverbs[i].prepare(spec);
     reverbs[i].setEnabled(false);
@@ -208,14 +210,11 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           adsrList[voiceIndex].reset();
           adsrList[voiceIndex].noteOn();
 
+          effectsChain[voiceIndex].reset();
+
           duplicatorsLowPass[voiceIndex].reset();
           duplicatorsHighPass[voiceIndex].reset();
           duplicatorsBandPass[voiceIndex].reset();
-          reverbs[voiceIndex].reset();
-          chorus[voiceIndex].reset();
-          flanger[voiceIndex].reset();
-          panner[voiceIndex].reset();
-          phaser[voiceIndex].reset();
         }
 
         const int soundChannels = samplerSound->getAudioData()->getNumChannels();
@@ -262,11 +261,52 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           duplicatorsBandPass[voiceIndex].process(context);
         }
 
-        reverbs[voiceIndex].process(context);
-        chorus[voiceIndex].process(context);
-        flanger[voiceIndex].process(context);
-        panner[voiceIndex].process(context);
-        phaser[voiceIndex].process(context);
+        if (lastReverbKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<0>(false); // Ativar Reverb
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<0>(true); // Bypass Reverb
+        }
+
+        if (lastChorusKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<1>(false); // Ativar Chorus
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<1>(true); // Bypass Chorus
+        }
+
+        if (lastFlangerKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<2>(false); // Ativar Flanger
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<2>(true); // Bypass Flanger
+        }
+
+        if (lastPannerKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<3>(false); // Ativar Panner
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<3>(true); // Bypass Panner
+        }
+
+        if (lastPhaserKnob[voiceIndex] != 0)
+        {
+          effectsChain[voiceIndex].setBypassed<4>(false); // Ativar Phaser
+        }
+        else
+        {
+          effectsChain[voiceIndex].setBypassed<4>(true); // Bypass Phaser
+        }
+
+        effectsChain[voiceIndex].process(context);
       }
 
       for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -441,30 +481,21 @@ void MySamplerVoice::changeBandPassFilter(double sampleRate, int knobValue)
 
 void MySamplerVoice::changeReverb(int knobValue)
 {
-  if (knobValue == 0)
-  {
-    reverbs[*selectedSample].setEnabled(false);
-  }
-  else
-  {
-    reverbs[*selectedSample].setEnabled(true);
 
-    juce::dsp::Reverb::Parameters revParams;
+  juce::dsp::Reverb::Parameters revParams;
 
-    float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-    // Adjust parameters with scaling for balance
-    revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
-    revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
-    revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
-    revParams.wetLevel = juce::jlimit(0.1f, 0.2f, normalizedValue * 0.2f);
-    revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
-    revParams.freezeMode = 0.0f;
+  // Adjust parameters with scaling for balance
+  revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
+  revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
+  revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
+  revParams.wetLevel = juce::jlimit(0.1f, 0.2f, normalizedValue * 0.2f);
+  revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
+  revParams.freezeMode = 0.0f;
 
-    reverbs[*selectedSample].setParameters(revParams);
-
-    lastReverbKnob[*selectedSample] = knobValue;
-  }
+  effectsChain[*selectedSample].get<0>().setParameters(revParams);
+  lastReverbKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeChorus(int knobValue)
@@ -472,11 +503,12 @@ void MySamplerVoice::changeChorus(int knobValue)
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
   // Melhorando a profundidade do chorus para mais "largura" no som
-  chorus[*selectedSample].setDepth(juce::jlimit(0.0f, 0.3f, 0.1f + (normalizedValue * 0.2f)));        // Moderate depth (BOSS choruses tend to have rich, lush depth)
-  chorus[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.0f + (normalizedValue * 0.15f)));   // Minimal feedback (BOSS pedals usually have no to low feedback)
-  chorus[*selectedSample].setRate(juce::jlimit(0.1f, 2.0f, 0.33f + (normalizedValue * 1.0f)));        // Slower modulation rate (BOSS CE-2 ranges from ~0.33Hz to 2Hz)
-  chorus[*selectedSample].setCentreDelay(juce::jlimit(5.0f, 10.0f, 5.0f + (normalizedValue * 2.0f))); // Shorter delay for classic chorus (CE-2 is around 5-10 ms delay)
-  chorus[*selectedSample].setMix(juce::jlimit(0.0f, 0.6f, normalizedValue));
+  effectsChain[*selectedSample].get<1>().setDepth(juce::jlimit(0.0f, 0.3f, 0.1f + (normalizedValue * 0.2f)));
+  effectsChain[*selectedSample].get<1>().setDepth(juce::jlimit(0.0f, 0.3f, 0.1f + (normalizedValue * 0.2f)));
+  effectsChain[*selectedSample].get<1>().setFeedback(juce::jlimit(0.0f, 0.95f, 0.0f + (normalizedValue * 0.15f)));
+  effectsChain[*selectedSample].get<1>().setRate(juce::jlimit(0.1f, 2.0f, 0.33f + (normalizedValue * 1.0f)));
+  effectsChain[*selectedSample].get<1>().setCentreDelay(juce::jlimit(5.0f, 10.0f, 5.0f + (normalizedValue * 2.0f)));
+  effectsChain[*selectedSample].get<1>().setMix(juce::jlimit(0.0f, 0.6f, normalizedValue));
 
   lastChorusKnob[*selectedSample] = knobValue;
 }
@@ -485,11 +517,11 @@ void MySamplerVoice::changeFlanger(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-  flanger[*selectedSample].setDepth(juce::jlimit(0.0f, 0.5f, 0.2f + (normalizedValue * 0.3f)));       // Deeper modulation (Boss flangers often have strong modulation)
-  flanger[*selectedSample].setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));   // More pronounced feedback, typical of Boss flangers
-  flanger[*selectedSample].setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));        // Slightly faster rate, but not too extreme
-  flanger[*selectedSample].setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f))); // Wider delay range for the sweeping flanger effect (more noticeable)
-  flanger[*selectedSample].setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));
+  effectsChain[*selectedSample].get<2>().setDepth(juce::jlimit(0.0f, 0.5f, 0.2f + (normalizedValue * 0.3f)));
+  effectsChain[*selectedSample].get<2>().setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));
+  effectsChain[*selectedSample].get<2>().setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));
+  effectsChain[*selectedSample].get<2>().setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f)));
+  effectsChain[*selectedSample].get<2>().setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));
 
   lastFlangerKnob[*selectedSample] = knobValue;
 }
@@ -497,7 +529,7 @@ void MySamplerVoice::changeFlanger(int knobValue)
 void MySamplerVoice::changePanner(int knobValue)
 {
   float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
-  panner[*selectedSample].setPan(panningValue);
+  effectsChain[*selectedSample].get<3>().setPan(panningValue);
 
   lastPannerKnob[*selectedSample] = knobValue;
 }
@@ -506,11 +538,11 @@ void MySamplerVoice::changePhaser(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-  phaser[*selectedSample].setRate(juce::jlimit(0.1f, 10.0f, 0.2f + (normalizedValue * 9.8f)));                     // Phaser rate (0.1Hz to 10Hz)
-  phaser[*selectedSample].setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
-  phaser[*selectedSample].setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
-  phaser[*selectedSample].setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
-  phaser[*selectedSample].setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));
+  effectsChain[*selectedSample].get<4>().setRate(juce::jlimit(0.1f, 10.0f, 0.2f + (normalizedValue * 9.8f)));                     // Phaser rate (0.1Hz to 10Hz)
+  effectsChain[*selectedSample].get<4>().setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
+  effectsChain[*selectedSample].get<4>().setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
+  effectsChain[*selectedSample].get<4>().setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
+  effectsChain[*selectedSample].get<4>().setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));
 
   lastPhaserKnob[*selectedSample] = knobValue;
 }
