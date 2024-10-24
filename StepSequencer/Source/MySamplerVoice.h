@@ -57,14 +57,12 @@ public:
   {
     if (sampleCommand == 127)
     {
-      samplesPositionFinger[sampleIndex] = 0;
-      samplesPressed[sampleIndex] = true;
+      samplesPositionFinger[sampleIndex] = sampleStart[sampleIndex];
       sampleMakeNoiseFinger[sampleIndex] = true;
       smoothGainRampFinger[sampleIndex].setCurrentAndTargetValue(previousGain[sampleIndex]);
     }
     else
     {
-      samplesPressed[sampleIndex] = false;
       smoothGainRampFinger[sampleIndex].setTargetValue(0.0f);
     }
   }
@@ -145,7 +143,7 @@ public:
   {
     for (int i = 0; i < size; i++)
     {
-      samplesPosition[i] = 0;
+      samplesPosition[i] = sampleStart[i];
     }
     sequencePlaying = true;
     startTimer(1000 / ((mBpm / 60.f) * 4));
@@ -282,7 +280,6 @@ private:
   std::array<int, 8> samplesPosition = {0};
   std::array<bool, 8> sampleMakeNoise = {false};
   std::array<bool, 8> previousSampleMakeNoise = {false};
-  std::array<bool, 8> samplesPressed = {false};
   std::array<bool, 8> isSampleMuted = {true, true, true, true, true, true, true, true};
   std::array<bool, 8> isSequenceChained = {false, false, false, false, false, false, false, false};
   std::array<std::vector<int>, 8> sequenceChain;

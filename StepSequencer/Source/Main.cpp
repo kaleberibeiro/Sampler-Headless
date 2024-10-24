@@ -484,7 +484,7 @@ int main()
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.05)
+      if (devmgr.getCpuUsage() > 0.02)
       {
         std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
