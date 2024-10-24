@@ -139,7 +139,6 @@ public:
   {
     knobValue = juce::jlimit(0, 127, knobValue);
     mBpm = 80 + ((static_cast<float>(knobValue) / 127.0f) * (207 - 80));
-    startTimer(1000 / ((mBpm / 60.f) * 4));
   };
 
   void playSequence()
@@ -273,6 +272,7 @@ private:
   int *lengthInSamples;
   double mSampleRate{0};
   int mBpm{140};
+  int lastBpm{140};
   int size{8};
   bool sequencePlaying{false};
   std::vector<std::vector<std::vector<std::array<int, 2>>>> sequences;

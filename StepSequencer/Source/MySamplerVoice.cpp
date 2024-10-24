@@ -126,6 +126,12 @@ void MySamplerVoice::hiResTimerCallback()
 {
   if (sequencePlaying)
   {
+    if (mBpm != lastBpm)
+    {
+      startTimer(1000 / ((mBpm / 60.f) * 4));
+      lastBpm = mBpm;
+    }
+
     for (int i = 0; i < size; i++)
     {
       int sequenceLength = sequences[i][selectedPattern[i]].size();
