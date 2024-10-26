@@ -46,6 +46,10 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
     smoothGainRamp[i].reset(mSampleRate, 0.03);
     smoothGainRampFinger[i].reset(mSampleRate, 0.03);
     smoothSampleLength[i].reset(mSampleRate, 0.1);
+    smoothLowRamps[i].reset(mSampleRate, 0.03);
+    smoothHighRamps[i].reset(mSampleRate, 0.01);
+    smoothBandRamps[i].reset(mSampleRate, 0.01);
+    lowPasses[i].prepare(spec);
 
     duplicatorsLowPass[i].prepare(spec);
     duplicatorsHighPass[i].prepare(spec);
@@ -223,6 +227,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           adsrList[voiceIndex].noteOn();
 
           effectsChain[voiceIndex].reset();
+          // lowPasses[voiceIndex].reset();
 
           duplicatorsLowPass[voiceIndex].reset();
           duplicatorsHighPass[voiceIndex].reset();
@@ -235,13 +240,24 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         {
           float gainValue = smoothGainRamp[voiceIndex].getNextValue();
           float adsrValue = adsrList[voiceIndex].getNextSample();
+          if (smoothLowRamps[voiceIndex].getNextValue() != 0 && smoothLowRamps[voiceIndex].isSmoothing())
+          {
+            lowPasses[*selectedSample].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
+          }
 
           for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
           {
             const int soundChannelIndex = channel % soundChannels;
             const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
             float finalSamples = audioData[samplesPosition[voiceIndex]] * gainValue * adsrValue;
-            sampleBuffer.addSample(channel, startSample + sample, finalSamples);
+            float filteredSamples = finalSamples;
+            if (lastLowPassKnob[voiceIndex] != 0)
+            {
+              lowPasses[voiceIndex].snapToZero();
+              filteredSamples = lowPasses[voiceIndex].processSample(finalSamples);
+            }
+
+            sampleBuffer.addSample(channel, startSample + sample, filteredSamples);
           }
 
           if (samplesPosition[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
@@ -257,11 +273,11 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
         juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
-        if (lastLowPassKnob[voiceIndex] != 0)
-        {
-          *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
-          duplicatorsLowPass[voiceIndex].process(context);
-        }
+        // if (lastLowPassKnob[voiceIndex] != 0)
+        // {
+        //   *duplicatorsLowPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
+        //   duplicatorsLowPass[voiceIndex].process(context);
+        // }
         if (lastHighPassKnob[voiceIndex] != 0)
         {
           *duplicatorsHighPass[voiceIndex].state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
@@ -547,7 +563,7 @@ void MySamplerVoice::changeReverb(int knobValue)
   revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
   revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
   revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
-  revParams.wetLevel = juce::jlimit(0.1f, 0.2f, normalizedValue * 0.2f);
+  revParams.wetLevel = juce::jlimit(0.0f, 0.3f, normalizedValue * 0.2f);
   revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
   revParams.freezeMode = 0.0f;
 

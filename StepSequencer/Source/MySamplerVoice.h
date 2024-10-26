@@ -312,5 +312,7 @@ private:
   bool fingerMode = false;
   std::array<bool, 8> sampleMakeNoiseFinger = {false};
   std::array<int, 8> samplesPositionFinger = {0};
+  std::array<juce::dsp::IIR::Filter<float>, 8> lowPasses;
+  std::array<juce::dsp::IIR::Coefficients<float>, 8> lowPassesCof;
   void updateSamplesActiveState();
 };

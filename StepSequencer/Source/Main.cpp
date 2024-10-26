@@ -12,12 +12,35 @@ public:
   MyMidiInputCallback(juce::Synthesiser &mySynth, MySamplerVoice &mySamplerVoice, juce::AudioIODevice *device)
       : mySynth(mySynth), mySamplerVoice(mySamplerVoice), device(device)
   {
+
+    actionsToAssign = {
+        "Play Sequence",
+        "Shift",
+        "Second page effects",
+        "Pattern chaining",
+        "Finger Drum mode",
+        "Sub Step mode",
+        "Selecte Pattern",
+        "Pattern Length",
+        "Save",
+        "Reset Sequence",
+        "Reset Sample",
+    };
   }
 
   void handleIncomingMidiMessage(juce::MidiInput *source, const juce::MidiMessage &message) override
   {
     if (message.isController())
     {
+      if (isLearningMode)
+      {
+        if (message.getControllerValue() == 127)
+        {
+          assignControllerToAction(message);
+        }
+        return;
+      }
+
       handleMomentaryBtn(message);
       handleMuteBtn(message);
       handleOtherControllers(message);
@@ -97,10 +120,21 @@ public:
       }
     }
 
-    std::cout << "CC: " << message.getControllerNumber() << std::endl;
+    // std::cout << "CC: " << message.getControllerNumber() << std::endl;
+  }
+
+  void initiateLearningMode()
+  {
+    isLearningMode = true;
+    currentActionIndex = 0;
+    promptForAction();
   }
 
 private:
+  bool isLearningMode = false;
+  std::vector<std::string> actionsToAssign;
+  int currentActionIndex;
+  std::map<std::string, int> actionMap;
   juce::Synthesiser &mySynth;
   MySamplerVoice &mySamplerVoice;
   juce::AudioIODevice *device;
@@ -116,6 +150,33 @@ private:
   int knobPage = 1;
   bool isSubStepMode = false;
   int selectedStep = -1;
+
+  void promptForAction()
+  {
+    if (currentActionIndex < actionsToAssign.size())
+    {
+      std::string currentAction = actionsToAssign[currentActionIndex];
+      std::cout << "Press " << currentAction << " button...\n"; // User feedback
+    }
+    else
+    {
+      isLearningMode = false;
+      std::cout << "All actions have been assigned!\n";
+    }
+  }
+
+  void assignControllerToAction(const juce::MidiMessage &message)
+  {
+    int ccNumber = message.getControllerNumber();
+    std::string currentAction = actionsToAssign[currentActionIndex];
+    actionMap[currentAction] = ccNumber;
+
+    std::cout << "Assigned CC " << ccNumber << " to action: " << currentAction << ".\n";
+
+    // Move to the next action
+    currentActionIndex++;
+    promptForAction();
+  }
 
   void handleMuteBtn(const juce::MidiMessage &message)
   {
@@ -199,6 +260,22 @@ private:
 
   void handleOtherControllers(const juce::MidiMessage &message)
   {
+    if (actionMap.find("Play Sequence") != actionMap.end())
+    {
+      int assignedCC = actionMap["Play Sequence"];
+      if (message.getControllerNumber() == assignedCC)
+      {
+        if (message.getControllerValue() == 0)
+        {
+          mySamplerVoice.stopSequence();
+        }
+        else
+        {
+          std::cout << "Entrou no play sequence" << std::endl;
+          mySamplerVoice.playSequence();
+        }
+      }
+    }
     switch (message.getControllerNumber())
     {
     case 0:
@@ -320,15 +397,15 @@ private:
         mySamplerVoice.playSequence();
       }
       break;
-    case 48:
-      mySamplerVoice.saveData();
-      break;
-    case 49:
-      mySamplerVoice.clearPattern();
-      break;
-    case 50:
-      mySamplerVoice.clearSampleModulation();
-      break;
+      case 48:
+        mySamplerVoice.saveData();
+        break;
+      case 49:
+        mySamplerVoice.clearPattern();
+        break;
+      case 50:
+        mySamplerVoice.clearSampleModulation();
+        break;
     }
   }
 };
@@ -379,13 +456,24 @@ bool keyPressed()
   return select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv) == 1;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+  bool midiLearningMode = false;
+  int numMidiControllers = 0;
+
+  // Verificar argumentos para o modo MIDI Learning e o número de controladores desejado
+  for (int i = 1; i < argc; ++i)
+  {
+    if (std::string(argv[i]) == "--midi-learning")
+      midiLearningMode = true;
+    else
+      numMidiControllers = std::stoi(argv[i]);
+  }
+
   juce::AudioDeviceManager devmgr;
   devmgr.initialiseWithDefaultDevices(0, 2);
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
-  // Metronome metronome(&mySynth);
   juce::AudioFormatManager mAudioFormatManager;
   std::vector<int> lengthInSamples;
   juce::BigInteger range;
@@ -438,61 +526,93 @@ int main()
 
   if (device && device->isOpen())
   {
-    int lastInputIndex = 0;
-    auto list = juce::MidiInput::getAvailableDevices();
-    auto midiInputs = juce::MidiInput::getAvailableDevices();
-    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
-
-    for (int i = 0; i < midiOutputs.size(); i++)
-    {
-      std::cout << "MIDI IDENTIFIER: " << midiOutputs[i].identifier << std::endl;
-      std::cout << "MIDI NAME: " << midiOutputs[i].name << std::endl;
-    }
-
-    for (int i = 0; i < midiInputs.size(); i++)
-    {
-      std::cout << "MIDI IDENTIFIER: " << midiInputs[i].identifier << std::endl;
-      std::cout << "MIDI NAME: " << midiInputs[i].name << std::endl;
-    }
-
-    auto nanoPad = midiInputs[1];
-    auto nanoKontrol = midiInputs[2];
-
-    devmgr.setDefaultMidiOutputDevice(nanoKontrol.identifier);
-
-    if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
-      devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
-    if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
-      devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
-
     MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
     MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
     devmgr.addAudioCallback(&audioCallback);
 
-    devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
-    devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+    if (midiLearningMode)
+    {
+      auto midiInputs = juce::MidiInput::getAvailableDevices();
+      // MyMidiInputCallback midiInputCallback;
 
-    juce::MidiOutput *midiOutttt = devmgr.getDefaultMidiOutput();
+      // Listar dispositivos MIDI com índices
+      std::cout << "Dispositivos MIDI disponíveis:" << std::endl;
+      for (size_t i = 0; i < midiInputs.size(); ++i)
+      {
+        std::cout << i << ": " << midiInputs[i].name << std::endl;
+      }
 
-    std::cout << "Midi out: " << devmgr.getDefaultMidiOutputIdentifier() << std::endl;
+      // Coletar seleção de dispositivos do usuário
+      std::cout << "Insira o(s) índice(s) do(s) dispositivo(s) MIDI que deseja ativar, separados por espaços (ex: 0 2 3): ";
+      std::string input;
+      std::getline(std::cin, input);
 
-    juce::MidiMessage offMessage = juce::MidiMessage::controllerEvent(1, 18, 0); // 1 is the channel, 18 is the controller number, and 0 is the value to turn it off.
+      std::istringstream iss(input);
+      int deviceIndex;
+      std::vector<int> selectedDevices;
 
-    midiOutttt->sendMessageNow(offMessage);
+      while (iss >> deviceIndex)
+      {
+        if (deviceIndex >= 0 && deviceIndex < midiInputs.size())
+        {
+          selectedDevices.push_back(deviceIndex);
+        }
+        else
+        {
+          std::cerr << "Índice inválido: " << deviceIndex << std::endl;
+        }
+      }
+
+      // Ativar dispositivos selecionados
+      for (int index : selectedDevices)
+      {
+        auto selectedDevice = midiInputs[index];
+        std::cout << "Ativando dispositivo: " << selectedDevice.name << std::endl;
+
+        if (!devmgr.isMidiInputDeviceEnabled(selectedDevice.identifier))
+          devmgr.setMidiInputDeviceEnabled(selectedDevice.identifier, true);
+
+        devmgr.addMidiInputDeviceCallback(selectedDevice.identifier, &midiInputCallback);
+      }
+
+      midiInputCallback.initiateLearningMode();
+    }
+    else
+    {
+      std::cerr << "Modo MIDI Learning não ativado ou número inválido de controladores especificado." << std::endl;
+
+      int lastInputIndex = 0;
+      auto list = juce::MidiInput::getAvailableDevices();
+      auto midiInputs = juce::MidiInput::getAvailableDevices();
+
+      for (int i = 0; i < midiInputs.size(); i++)
+      {
+        std::cout << "MIDI IDENTIFIER: " << midiInputs[i].identifier << std::endl;
+        std::cout << "MIDI NAME: " << midiInputs[i].name << std::endl;
+      }
+
+      auto nanoPad = midiInputs[1];
+      auto nanoKontrol = midiInputs[2];
+
+      if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
+        devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
+      if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
+        devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
+
+      devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
+      devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+    }
 
     bool playAudio = true;
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.02)
+      if (devmgr.getCpuUsage() > 0.05)
       {
-        std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+        // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
-      // Check if a key is pressed to stop audio playback
       if (keyPressed())
       {
-        // Stop the audio device before exiting
-        // device->stop();
         playAudio = false;
       }
     }
