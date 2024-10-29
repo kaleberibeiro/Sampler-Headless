@@ -286,14 +286,7 @@ private:
     case 5:
     case 6:
     case 7:
-      if (momentaryBtnStates[message.getControllerNumber()])
-      {
-        mySamplerVoice.changePitchShift(message.getControllerNumber(), message.getControllerValue());
-      }
-      else
-      {
-        mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
-      }
+      mySamplerVoice.changeSampleVelocity(message.getControllerNumber(), message.getControllerValue());
       break;
     case 8:
       if (knobPage == 1)
@@ -358,11 +351,11 @@ private:
     case 14:
       if (knobPage == 1)
       {
-        mySamplerVoice.changeBandPassFilter(device->getCurrentSampleRate(), message.getControllerValue());
+        mySamplerVoice.changeTremolo(message.getControllerValue());
       }
       else if (knobPage == 2)
       {
-        mySamplerVoice.changeDelay(message.getControllerValue());
+        // mySamplerVoice.changeDelay(message.getControllerValue());
       }
       break;
     case 15:
@@ -397,15 +390,15 @@ private:
         mySamplerVoice.playSequence();
       }
       break;
-      case 48:
-        mySamplerVoice.saveData();
-        break;
-      case 49:
-        mySamplerVoice.clearPattern();
-        break;
-      case 50:
-        mySamplerVoice.clearSampleModulation();
-        break;
+    case 48:
+      mySamplerVoice.saveData();
+      break;
+    case 49:
+      mySamplerVoice.clearPattern();
+      break;
+    case 50:
+      mySamplerVoice.clearSampleModulation();
+      break;
     }
   }
 };
@@ -607,9 +600,9 @@ int main(int argc, char *argv[])
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.05)
+      if (devmgr.getCpuUsage() > 0.3)
       {
-        // std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+        std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
       if (keyPressed())
       {

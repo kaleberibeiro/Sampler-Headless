@@ -118,20 +118,20 @@ public:
   void changeAdsrValues(int knobValue, int adsrParam);
   void changeLowPassFilter(double sampleRate, int knobValue);
   void changeHighPassFilter(double sampleRate, int knobValue);
-  void changeBandPassFilter(double sampleRate, int knobValue);
+  void changeLowPassFilterInicial(double sampleRate, int sampleIndex, int knobValue);
+  void changeHighPassFilterInicial(double sampleRate, int sampleIndex, int knobValue);
   void changeReverb(int knobValue);
+  void changeReverbInicial(int sample, int knobValue);
   void changeChorus(int knobValue);
+  void changeChorusInicial(int sample, int knobValue);
   void changeFlanger(int knobValue);
+  void changeFlangerInicial(int sample, int knobValue);
   void changePhaser(int knobValue);
+  void changePhaserInicial(int sample, int knobValue);
   void changePanner(int knobValue);
-  void changeDelay(int knobValue);
-
-  void changePitchShift(int sampleIndex, int knobValue)
-  {
-    float pitchShift = 0.5f + (knobValue / 127.0f) * (2.0f - 0.5f);
-    pitchShiftFactors[sampleIndex] = pitchShift;
-    interpolators[sampleIndex].reset();
-  }
+  void changePannerInicial(int sample, int knobValue);
+  void changeTremolo(int knobValue);
+  void changeTremoloInicial(int sample, int knobValue);
 
   void changeBPM(int knobValue)
   {
@@ -258,15 +258,12 @@ private:
   juce::Synthesiser *mySynth;
   SubstepTimer subStepTimer;
   std::array<float, 8> previousGain;
+  std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothTremoloGain;
   std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothSampleLength;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRamp;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothGainRampFinger;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothLowRamps;
   std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothHighRamps;
-  std::array<juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>, 8> smoothBandRamps;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsLowPass;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsHighPass;
-  std::array<juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>>, 8> duplicatorsBandPass;
   int *lengthInSamples;
   double mSampleRate{0};
   int mBpm{140};
@@ -293,26 +290,28 @@ private:
                                        juce::dsp::Phaser<float>>,
              8>
       effectsChain;
-  std::array<juce::dsp::Reverb, 8> reverbs;
-  std::array<juce::dsp::Chorus<float>, 8> chorus;
-  std::array<juce::dsp::Chorus<float>, 8> flanger;
-  std::array<juce::dsp::Panner<float>, 8> panner;
-  std::array<juce::dsp::Phaser<float>, 8> phaser;
-  std::array<juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>, 8> delay;
-  std::array<juce::LinearInterpolator, 8> interpolators;
-  std::array<float, 8> pitchShiftFactors = {0};
+  juce::dsp::ProcessorChain<juce::dsp::Reverb,
+                            juce::dsp::Chorus<float>,
+                            juce::dsp::Chorus<float>,
+                            juce::dsp::Panner<float>,
+                            juce::dsp::Phaser<float>>
+      effect;
   std::array<int, 8> lastReverbKnob = {0};
   std::array<int, 8> lastChorusKnob = {0};
   std::array<int, 8> lastFlangerKnob = {0};
-  std::array<int, 8> lastPannerKnob = {0};
+  std::array<int, 8> lastPannerKnob = {64, 64, 64, 64, 64, 64, 64, 64};
   std::array<int, 8> lastPhaserKnob = {0};
   std::array<int, 8> lastLowPassKnob = {0};
   std::array<int, 8> lastHighPassKnob = {0};
-  std::array<int, 8> lastBandPassKnob = {0};
+  std::array<int, 8> lastTremoloKnob = {0};
   bool fingerMode = false;
   std::array<bool, 8> sampleMakeNoiseFinger = {false};
   std::array<int, 8> samplesPositionFinger = {0};
   std::array<juce::dsp::IIR::Filter<float>, 8> lowPasses;
-  std::array<juce::dsp::IIR::Coefficients<float>, 8> lowPassesCof;
+  std::array<juce::dsp::IIR::Filter<float>, 8> highPasses;
+  std::array<juce::dsp::Oscillator<float>, 8> lfos;
   void updateSamplesActiveState();
+  void processEffects(juce::AudioBuffer<float> &buffer, int sampleIndex);
+  void getFiltersAndTremolo(float &tremoloGain, int voiceIndex);
+  void processFiltersAndTremolo(float &sample, int voiceIndex, float tremoloGain);
 };
