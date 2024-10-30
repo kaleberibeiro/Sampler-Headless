@@ -429,8 +429,16 @@ void MySamplerVoice::processFiltersAndTremolo(float &filteredSamples, int voiceI
   const juce::ScopedLock sl(objectLock);
   juce::ScopedNoDenormals noDenormals;
 
-  filteredSamples = highPasses[voiceIndex].processSample(filteredSamples);
-  filteredSamples = lowPasses[voiceIndex].processSample(filteredSamples);
+  if (smoothHighRamps[voiceIndex].getCurrentValue() > 20.0)
+  {
+    highPasses[voiceIndex].snapToZero();
+    filteredSamples = highPasses[voiceIndex].processSample(filteredSamples);
+  }
+  if (smoothLowRamps[voiceIndex].getCurrentValue() < 20000)
+  {
+    lowPasses[voiceIndex].snapToZero();
+    filteredSamples = lowPasses[voiceIndex].processSample(filteredSamples);
+  }
 
   filteredSamples *= tremoloGain;
 }
@@ -441,43 +449,52 @@ void MySamplerVoice::processEffects(juce::AudioBuffer<float> &buffer, int sample
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   juce::dsp::ProcessContextReplacing<float> context(audioBlock);
 
-    if (lastChorusKnob[sampleIndex] != 0)
-    {
-      effectsChain[sampleIndex].setBypassed<1>(false); // Ativar Chorus
-    }
-    else
-    {
-      effectsChain[sampleIndex].setBypassed<1>(true); // Bypass Chorus
-    }
+  if (lastReverbKnob[sampleIndex] != 0)
+  {
+    effectsChain[sampleIndex].setBypassed<0>(false); // Ativar Chorus
+  }
+  else
+  {
+    effectsChain[sampleIndex].setBypassed<0>(true); // Bypass Chorus
+  }
 
-    if (lastFlangerKnob[sampleIndex] != 0)
-    {
-      effectsChain[sampleIndex].setBypassed<2>(false); // Ativar Flanger
-    }
-    else
-    {
-      effectsChain[sampleIndex].setBypassed<2>(true); // Bypass Flanger
-    }
+  if (lastChorusKnob[sampleIndex] != 0)
+  {
+    effectsChain[sampleIndex].setBypassed<1>(false); // Ativar Chorus
+  }
+  else
+  {
+    effectsChain[sampleIndex].setBypassed<1>(true); // Bypass Chorus
+  }
 
-    if (lastPannerKnob[sampleIndex] != 64)
-    {
-      effectsChain[sampleIndex].setBypassed<3>(false); // Ativar Panner
-    }
-    else
-    {
-      effectsChain[sampleIndex].setBypassed<3>(true); // Bypass Panner
-    }
+  if (lastFlangerKnob[sampleIndex] != 0)
+  {
+    effectsChain[sampleIndex].setBypassed<2>(false); // Ativar Flanger
+  }
+  else
+  {
+    effectsChain[sampleIndex].setBypassed<2>(true); // Bypass Flanger
+  }
 
-    if (lastPhaserKnob[sampleIndex] != 0)
-    {
-      effectsChain[sampleIndex].setBypassed<4>(false); // Ativar Phaser
-    }
-    else
-    {
-      effectsChain[sampleIndex].setBypassed<4>(true); // Bypass Phaser
-    }
+  if (lastPannerKnob[sampleIndex] != 64)
+  {
+    effectsChain[sampleIndex].setBypassed<3>(false); // Ativar Panner
+  }
+  else
+  {
+    effectsChain[sampleIndex].setBypassed<3>(true); // Bypass Panner
+  }
 
-    effectsChain[sampleIndex].process(context);
+  if (lastPhaserKnob[sampleIndex] != 0)
+  {
+    effectsChain[sampleIndex].setBypassed<4>(false); // Ativar Phaser
+  }
+  else
+  {
+    effectsChain[sampleIndex].setBypassed<4>(true); // Bypass Phaser
+  }
+
+  effectsChain[sampleIndex].process(context);
 }
 
 void MySamplerVoice::changeAdsrValues(int value, int adsrParam)

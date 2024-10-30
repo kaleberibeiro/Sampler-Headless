@@ -600,7 +600,7 @@ int main(int argc, char *argv[])
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.3)
+      if (devmgr.getCpuUsage() > 0.05)
       {
         std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
       }
