@@ -290,28 +290,27 @@ private:
                                        juce::dsp::Phaser<float>>,
              8>
       effectsChain;
-  juce::dsp::ProcessorChain<juce::dsp::Reverb,
-                            juce::dsp::Chorus<float>,
-                            juce::dsp::Chorus<float>,
-                            juce::dsp::Panner<float>,
-                            juce::dsp::Phaser<float>>
-      effect;
-  std::array<int, 8> lastReverbKnob = {0};
-  std::array<int, 8> lastChorusKnob = {0};
-  std::array<int, 8> lastFlangerKnob = {0};
+  std::array<int, 8> lastReverbKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> lastChorusKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> actualChorusKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> lastFlangerKnob = {0, 0, 0, 0, 0, 0, 0, 0};
   std::array<int, 8> lastPannerKnob = {64, 64, 64, 64, 64, 64, 64, 64};
-  std::array<int, 8> lastPhaserKnob = {0};
-  std::array<int, 8> lastLowPassKnob = {0};
-  std::array<int, 8> lastHighPassKnob = {0};
-  std::array<int, 8> lastTremoloKnob = {0};
+  std::array<int, 8> lastPhaserKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> lastLowPassKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> lastHighPassKnob = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> lastTremoloKnob = {0, 0, 0, 0, 0, 0, 0, 0};
   bool fingerMode = false;
   std::array<bool, 8> sampleMakeNoiseFinger = {false};
-  std::array<int, 8> samplesPositionFinger = {0};
+  std::array<int, 8> samplesPositionFinger = {0, 0, 0, 0, 0, 0, 0, 0};
   std::array<juce::dsp::IIR::Filter<float>, 8> lowPasses;
   std::array<juce::dsp::IIR::Filter<float>, 8> highPasses;
   std::array<juce::dsp::Oscillator<float>, 8> lfos;
+  std::array<juce::AudioBuffer<float>, 8> initialProcessedSamples;
+  std::array<std::shared_ptr<juce::AudioBuffer<float>>, 8> finalProcessedSamples;
   void updateSamplesActiveState();
   void processEffects(juce::AudioBuffer<float> &buffer, int sampleIndex);
   void getFiltersAndTremolo(float &tremoloGain, int voiceIndex);
   void processFiltersAndTremolo(float &sample, int voiceIndex, float tremoloGain);
+  void processSample(int voiceIndex);
+  void processNewEffects(juce::AudioBuffer<float> &buffer, int sampleIndex);
 };
