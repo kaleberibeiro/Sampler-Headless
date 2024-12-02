@@ -268,30 +268,26 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         {
           if (samplesPosition[voiceIndex] < finalProcessedSamples[voiceIndex]->getNumSamples())
           {
-            // Get the valid sample
             float finalSample = finalProcessedSamples[voiceIndex]->getSample(channel, samplesPosition[voiceIndex]);
-            finalSample *= gainValue * adsrValue; // Apply gain and ADSR
+            finalSample *= gainValue * adsrValue;
+
+            float tremoloGain;
+            getFiltersAndTremolo(tremoloGain, voiceIndex);
+            processFiltersAndTremolo(finalSample, voiceIndex, tremoloGain);
             sampleBuffer.addSample(channel, startSample + sample, finalSample);
           }
           else
           {
-            // If we exceeded the number of valid samples, create a smooth fade-out
             if (samplesPosition[voiceIndex] > 0)
             {
-              // Get the last valid sample to ensure we are not going out of bounds
               float lastValidSample = finalProcessedSamples[voiceIndex]->getSample(channel, finalProcessedSamples[voiceIndex]->getNumSamples() - 1);
-
-              // Calculate a fade-out factor based on how many samples are left to process
               float fadeOutFactor = 1.0f - (static_cast<float>(samplesPosition[voiceIndex] - finalProcessedSamples[voiceIndex]->getNumSamples()) / numSamples);
-
-              // Create the fading sample
               float fadeOutSample = lastValidSample * fadeOutFactor * gainValue * adsrValue;
 
               sampleBuffer.addSample(channel, startSample + sample, fadeOutSample);
             }
             else
             {
-              // If no samples have been processed yet, just set to zero
               sampleBuffer.addSample(channel, startSample + sample, 0.0f);
             }
           }
@@ -370,7 +366,6 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
           }
           else
           {
-            // Normal tremolo gain calculation
             tremoloGain = 0.5f * (1.0f + lfos[voiceIndex].processSample(0.0f));
           }
 
@@ -437,7 +432,6 @@ void MySamplerVoice::getFiltersAndTremolo(float &tremoloGain, int voiceIndex)
   }
   else
   {
-    // Normal tremolo gain calculation
     tremoloGain = 0.5f * (1.0f + lfos[voiceIndex].processSample(0.0f));
   }
 
