@@ -4,20 +4,28 @@
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1">
   <MAINGROUP id="XJnwE3" name="StepSequencer">
     <GROUP id="{537828AC-D497-73D8-D181-0964E2D0C775}" name="Source">
+      <FILE id="wDEcxu" name="MySamplerVoice.cpp" compile="1" resource="0"
+            file="Source/MySamplerVoice.cpp"/>
+      <FILE id="hZaIPW" name="MySamplerVoice.h" compile="0" resource="0"
+            file="Source/MySamplerVoice.h"/>
+      <FILE id="aXTdkU" name="SamplerSoundSynth.cpp" compile="1" resource="0"
+            file="Source/SamplerSoundSynth.cpp"/>
+      <FILE id="GdxuLN" name="SamplerSoundSynth.h" compile="0" resource="0"
+            file="Source/SamplerSoundSynth.h"/>
       <FILE id="ttKlvs" name="Metronome.cpp" compile="1" resource="0" file="Source/Metronome.cpp"/>
       <FILE id="hbGUUc" name="Metronome.h" compile="0" resource="0" file="Source/Metronome.h"/>
       <FILE id="iQ1UkM" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
-    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_midi_ci" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
+    <MODULE id="juce_midi_ci" showAllCode="1" useLocalCopy="1" useGlobalPath="1"/>
   </MODULES>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="1"/>
   <EXPORTFORMATS>

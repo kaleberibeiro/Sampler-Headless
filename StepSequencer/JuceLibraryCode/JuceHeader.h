@@ -13,14 +13,14 @@
 #pragma once
 
 
-#include "../../JUCE/modules/juce_audio_basics/juce_audio_basics.h"
-#include "../../JUCE/modules/juce_audio_devices/juce_audio_devices.h"
-#include "../../JUCE/modules/juce_audio_formats/juce_audio_formats.h"
-#include "../../JUCE/modules/juce_core/juce_core.h"
-#include "../../JUCE/modules/juce_data_structures/juce_data_structures.h"
-#include "../../JUCE/modules/juce_dsp/juce_dsp.h"
-#include "../../JUCE/modules/juce_events/juce_events.h"
-#include "../../JUCE/modules/juce_midi_ci/juce_midi_ci.h"
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_dsp/juce_dsp.h>
+#include <juce_events/juce_events.h>
+#include <juce_midi_ci/juce_midi_ci.h>
 
 
 #if defined (JUCE_PROJUCER_VERSION) && JUCE_PROJUCER_VERSION < JUCE_VERSION
