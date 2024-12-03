@@ -68,4 +68,6 @@ Outros Erros de Compilação: Certifique-se de que todas as dependências estão
 Esta funcionalidade permite uma rápida e fácil configuração dos controladores MIDI.
 Para entrar no modo de configuração dos controladores MIDI apenas é necessário correr o programa da seguinte forma:
 ```
-./S
+./StepSequencer --midi-learning
+```
+
