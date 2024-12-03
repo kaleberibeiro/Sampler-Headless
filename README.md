@@ -88,3 +88,50 @@ Assigned CC 43 to action: Play Sequence.
 ```
 Repita o processo para todas as funções e no final a configuração estará completa.
 
+## Funcionalidades
+## Sequenciamento
+### Samples
+8 Samples slots disponíveis.
+
+### Sequências
+Cada sample possui um total de 8 sequências que podem ser encadeadas.
+
+### Steps
+Cada padrão possui um máximo de 64 passos por sequências, sendo este número modificável.
+
+### Subdivisões Rítmicas
+Neste modo é possível dividir um único passo em vários eventos sonoros menores, nomeadamente 2, 3 ou 4. Para tal apenas é necessário entrar nesse modo, selecionar um dos passos da sequência e o número de subdivisões desejadas.
+
+## BPM
+Os BPM neste sampler variam de 80 a 207 BPM.
+
+## Manipulação e Efeitos
+- Início do sample
+- Final do sample
+- Envelope ADSR
+ - Attack
+ - Decay
+ - Sustain
+ - Release
+- Filtro Low-Pass
+- Filtro High-Pass
+- Tremolo
+- Reverb
+- Chorus
+- Flanger
+- Phaser
+- Panner
+
+## Finger Drumming
+Para ativar o modo Finger Drumming, a sequência necessita de estar parada para então o botão do modo Finger Drumming funcionar.
+
+## Extras
+### Armazenamento de Parâmetros
+É possível guardar todos os parâmetros e sequências com um único botão.
+
+### Panic Buttons
+Este sampler é equipado com dois panic buttons, um que limpa a sequência selecionada e o outro as manipulações do sample selecionado.
+
+## Live Mode
+Existe uma opção de Live Mode para este sampler, voltada para performances ao vivo que permite a remoção e inserção de samples ao audio output sem que a sequência pare.
+
