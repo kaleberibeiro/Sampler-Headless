@@ -19,13 +19,14 @@ sudo apt install -y build-essential git cmake libasound2-dev libcurl4-openssl-de
 ## 2. Clonar o Repositório
 
 Faça o clone do repositório do projeto no Raspberry Pi:
-´´´
+```
 git clone https://github.com/kaleberibeiro/Sampler-Headless.git
-´´´
+```
+
 Navegue até a pasta do projeto:
-´´´
+```
 cd Sampler-Headless
-´´´
+```
 ## 3. Configurar o Projeto
 
 Certifique-se de que o caminho para a biblioteca JUCE está configurado corretamente.
