@@ -1,5 +1,5 @@
 # Sampler Headless
-## Instalação no Raspberry Pi
+# Instalação no Raspberry Pi
 Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
 ## 1. Preparar o Ambiente no Raspberry Pi
 Antes de iniciar a instalação, certifique-se de que o Raspberry Pi está atualizado e possui os pacotes necessários instalados.
@@ -64,7 +64,7 @@ sudo apt install pkg-config
 ```
 Outros Erros de Compilação: Certifique-se de que todas as dependências estão instaladas e que o caminho para o JUCE está correto no Makefile.
 
-## MIDI Learning
+# MIDI Learning
 Esta funcionalidade permite uma rápida e fácil configuração dos controladores MIDI.
 Para entrar no modo de configuração dos controladores MIDI apenas é necessário correr o programa da seguinte forma:
 ```
@@ -88,7 +88,7 @@ Assigned CC 43 to action: Play Sequence.
 ```
 Repita o processo para todas as funções e no final a configuração estará completa.
 
-## Funcionalidades
+# Funcionalidades
 ## Sequenciamento
 ### Samples
 8 Samples slots disponíveis.
