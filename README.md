@@ -1,4 +1,4 @@
-# StepSequencer
+# Sampler Headless
 ## Instalação no Raspberry Pi
 Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
 ## 1. Preparar o Ambiente no Raspberry Pi
