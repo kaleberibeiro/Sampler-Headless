@@ -5,6 +5,7 @@ Este guia detalha o processo de configuração e instalação do Sampler num Ras
 Antes de iniciar a instalação, certifique-se de que o Raspberry Pi está atualizado e possui os pacotes necessários instalados.
 ### Atualizar o Sistema
 Execute os seguintes comandos para atualizar os pacotes do sistema:
-``` sudo apt update
+```
+sudo apt update
 sudo apt upgrade -y
  ```
