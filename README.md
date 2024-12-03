@@ -63,3 +63,9 @@ Erro pkg-config not found: Instale o pkg-config:
 sudo apt install pkg-config
 ```
 Outros Erros de Compilação: Certifique-se de que todas as dependências estão instaladas e que o caminho para o JUCE está correto no Makefile.
+
+## MIDI Learning
+Esta funcionalidade permite uma rápida e fácil configuração dos controladores MIDI.
+Para entrar no modo de configuração dos controladores MIDI apenas é necessário correr o programa da seguinte forma:
+```
+./S
