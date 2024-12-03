@@ -70,4 +70,21 @@ Para entrar no modo de configuração dos controladores MIDI apenas é necessár
 ```
 ./StepSequencer --midi-learning
 ```
+Após a execução do comando acima, será apresentado na consola a lista de dispositivos MIDI disponíveis e será apenas necessário inserir o índice dos dispositivos a configurar. Por exemplo:
+```
+Dispositivos MIDI disponíveis:
+0: Midi Through Port-0
+Insira o(s) índice(s) do(s) dispositivo(s) MIDI que deseja ativar, separados por espaços (ex: 0 2 3):
+```
+Após a escolha dos dispositivos, irá se decorrer à configuração das funcionalidades. Uma mensagem, por exemplo:
+
+```
+Press Play Sequence button...
+```
+Irá aparecer na consola e o utilizador apenas necessita de pressionar o botão desejado para atribuir a essa função e deverá aparecer a seguinte mensagem de feedback, por exemplo:
+
+```
+Assigned CC 43 to action: Play Sequence.
+```
+Repita o processo para todas as funções e no final a configuração estará completa.
 
