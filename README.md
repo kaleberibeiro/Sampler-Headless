@@ -12,9 +12,9 @@ sudo apt upgrade -y
 ### Instalar Dependências Necessárias
 
 Certifique-se de instalar as bibliotecas e ferramentas necessárias para compilar e executar o projeto:
-´´´
+```
 sudo apt install -y build-essential git cmake libasound2-dev libcurl4-openssl-dev pkg-config
-´´´
+```
 
 ## 2. Clonar o Repositório
 
