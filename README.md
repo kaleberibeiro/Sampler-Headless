@@ -1,121 +1,113 @@
 # Sampler Headless
-Este projeto é um sampler de áudio projetado para ser executado em ambientes sem interface gráfica, sendo ideal para utilização em sistemas como o Raspberry Pi. Ele permite a manipulação de samples, sequenciamento, aplicação de efeitos, e controle via MIDI, sendo altamente configurável para performance ao vivo ou para uso em produções musicais. Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
-# Instalação no Raspberry Pi
-Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
-## 1. Preparar o Ambiente no Raspberry Pi
-Antes de iniciar a instalação, certifique-se de que o Raspberry Pi está atualizado e possui os pacotes necessários instalados.
-### Atualizar o Sistema
-Execute os seguintes comandos para atualizar os pacotes do sistema:
+This project is an audio sampler designed to run in headless environments, making it ideal for use on systems such as the Raspberry Pi. It allows for sample manipulation, sequencing, effect application, and MIDI control, making it highly configurable for live performance or music production. This guide details the process of setting up and installing the Sampler on a Raspberry Pi. Please follow the steps below carefully to ensure proper functionality.
+# Installation on Raspberry Pi
+This guide outlines the process for configuring and installing the Sampler on a Raspberry Pi. Follow the steps below carefully to ensure everything functions correctly.
+## 1. Preparing the Environment on the Raspberry Pi
+Before beginning the installation, ensure that the Raspberry Pi is updated and has the necessary packages installed.
+### Updating the System
+Run the following commands to update the system packages:
 ```
 sudo apt update
 sudo apt upgrade -y
  ```
-### Instalar Dependências Necessárias
+### Installing Required Dependencies
+Ensure that the libraries and tools needed to compile and run the project are installed:
 
-Certifique-se de instalar as bibliotecas e ferramentas necessárias para compilar e executar o projeto:
 ```
 sudo apt install -y build-essential git cmake libasound2-dev libcurl4-openssl-dev pkg-config
 ```
 
-## 2. Clonar o Repositório
-
-Faça o clone do repositório do projeto no Raspberry Pi:
+## 2. Cloning the Repository
+Clone the project repository onto the Raspberry Pi:
 ```
 git clone https://github.com/kaleberibeiro/Sampler-Headless.git
 ```
-
-Navegue até a pasta do projeto:
+Navigate to the project directory:
 ```
 cd Sampler-Headless
 ```
-## 3. Configurar o Projeto
+## 3. Configuring the Project
+Ensure that the path to the JUCE library is correctly configured.
 
-Certifique-se de que o caminho para a biblioteca JUCE está configurado corretamente.
-
-### Instalar a Biblioteca JUCE
-
-Se você ainda não possui o JUCE no Raspberry Pi, faça o clone:
+### Installing the JUCE Library
+If JUCE is not already installed on the Raspberry Pi, clone it as follows:
 ```
 git clone https://github.com/juce-framework/JUCE.git ~/JUCE
 ```
 
-## 4. Compilar o Projeto
-
-Use o comando abaixo para compilar o projeto:
+## 4. Compiling the Project
+Use the following command to compile the project:
 ```
 make
 ```
-Se a compilação ocorrer sem erros, você verá um arquivo executável gerado na pasta do projeto.
+If the compilation completes without errors, an executable file will be generated in the project folder.
 
-## 5. Executar o Projeto
-
-Para executar o StepSequencer, utilize o comando:
+## 5. Running the Project
+To run the StepSequencer, use the command:
 ```
 ./StepSequencer
 ```
-## 6. Solução de Problemas
-
-Erro libasound.so.2 => not found: Instale a biblioteca ALSA com o comando:
+## 6. Troubleshooting
+Error libasound.so.2 => not found: Install the ALSA library with the following command:
 ```
 sudo apt install libasound2
 ```
-Erro pkg-config not found: Instale o pkg-config:
+Error pkg-config not found: Install pkg-config with:
 ```
 sudo apt install pkg-config
 ```
-Outros Erros de Compilação: Certifique-se de que todas as dependências estão instaladas e que o caminho para o JUCE está correto no Makefile.
+Other Compilation Errors: Ensure that all dependencies are installed and that the path to JUCE is correctly set in the Makefile.
 
 # MIDI Learning
-Esta funcionalidade permite uma rápida e fácil configuração dos controladores MIDI.
-Para entrar no modo de configuração dos controladores MIDI apenas é necessário correr o programa da seguinte forma:
+This feature allows for quick and easy configuration of MIDI controllers. To enter the MIDI controller setup mode, run the program as follows:
 ```
 ./StepSequencer --midi-learning
 ```
-Após a execução do comando acima, será apresentado na consola a lista de dispositivos MIDI disponíveis e será apenas necessário inserir o índice dos dispositivos a configurar. Por exemplo:
+After executing the above command, a list of available MIDI devices will be displayed, and you will need to input the index of the devices to configure. For example:
 ```
 Dispositivos MIDI disponíveis:
 0: Midi Through Port-0
 Insira o(s) índice(s) do(s) dispositivo(s) MIDI que deseja ativar, separados por espaços (ex: 0 2 3):
 ```
-Após a escolha dos dispositivos, irá se decorrer à configuração das funcionalidades. Uma mensagem, por exemplo:
+Once the devices are selected, the configuration process will begin. A message such as:
 
 ```
 Press Play Sequence button...
 ```
-Irá aparecer na consola e o utilizador apenas necessita de pressionar o botão desejado para atribuir a essa função e deverá aparecer a seguinte mensagem de feedback, por exemplo:
+will appear in the console, and the user needs to press the desired button to assign the function. Feedback will be shown as follows:
 
 ```
 Assigned CC 43 to action: Play Sequence.
 ```
-Repita o processo para todas as funções e no final a configuração estará completa.
+Repeat the process for all functions, and once complete, the configuration will be finished.
 
-# Funcionalidades
-## Sequenciamento
+# Features
+## Sequencing
 ### Samples
-8 Samples slots disponíveis.
+8 Samples slots available.
 
-### Sequências
-Cada sample possui um total de 8 sequências que podem ser encadeadas.
+### Sequences
+Each sample has a total of 8 sequences that can be chained together.
 
 ### Steps
-Cada padrão possui um máximo de 64 passos por sequências, sendo este número modificável.
+Each pattern can have a maximum of 64 steps per sequence, and this number is adjustable.
 
-### Subdivisões Rítmicas
-Neste modo é possível dividir um único passo em vários eventos sonoros menores, nomeadamente 2, 3 ou 4. Para tal apenas é necessário entrar nesse modo, selecionar um dos passos da sequência e o número de subdivisões desejadas.
+### Rhythmic Subdivisions
+This mode allows for the division of a single step into smaller sound events, such as 2, 3, or 4 subdivisions. To use this feature, simply enter the mode, select a step from the sequence, and set the desired number of subdivisions.
 
 ## BPM
-Os BPM neste sampler variam de 80 a 207 BPM.
+The BPM range for this sampler varies from 80 to 207 BPM.
 
-## Manipulação e Efeitos
-- Início do sample
-- Final do sample
-- Envelope ADSR
+## Manipulation and Effects
+- Sample start
+- Sample end
+- ADSR envelope
  - Attack
  - Decay
  - Sustain
  - Release
-- Filtro Low-Pass
-- Filtro High-Pass
+- Low-pass filter
+- High-pass filter
 - Tremolo
 - Reverb
 - Chorus
@@ -124,15 +116,15 @@ Os BPM neste sampler variam de 80 a 207 BPM.
 - Panner
 
 ## Finger Drumming
-Para ativar o modo Finger Drumming, a sequência necessita de estar parada para então o botão do modo Finger Drumming funcionar.
+To activate the Finger Drumming mode, the sequence must be stopped for the Finger Drumming button to function.
 
 ## Extras
-### Armazenamento de Parâmetros
-É possível guardar todos os parâmetros e sequências com um único botão.
+### Parameter Storage
+It is possible to save all parameters and sequences with a single button press.
 
 ### Panic Buttons
-Este sampler é equipado com dois panic buttons, um que limpa a sequência selecionada e o outro as manipulações do sample selecionado.
+This sampler is equipped with two panic buttons: one clears the selected sequence, and the other resets the sample's manipulations.
 
 ## Live Mode
-Existe uma opção de Live Mode para este sampler, voltada para performances ao vivo que permite a remoção e inserção de samples ao audio output sem que a sequência pare.
+A Live Mode option is available for this sampler, designed for live performances. It allows for the insertion and removal of samples from the audio output without interrupting the sequence.
 
