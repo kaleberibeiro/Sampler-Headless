@@ -1,4 +1,5 @@
 # Sampler Headless
+Este projeto é um sampler de áudio projetado para ser executado em ambientes sem interface gráfica, sendo ideal para utilização em sistemas como o Raspberry Pi. Ele permite a manipulação de samples, sequenciamento, aplicação de efeitos, e controle via MIDI, sendo altamente configurável para performance ao vivo ou para uso em produções musicais. Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
 # Instalação no Raspberry Pi
 Este guia detalha o processo de configuração e instalação do Sampler num Raspberry Pi. Siga os passos abaixo cuidadosamente para garantir que tudo funcione corretamente.
 ## 1. Preparar o Ambiente no Raspberry Pi
