@@ -128,3 +128,6 @@ This sampler is equipped with two panic buttons: one clears the selected sequenc
 ## Live Mode
 A Live Mode option is available for this sampler, designed for live performances. It allows for the insertion and removal of samples from the audio output without interrupting the sequence.
 
+# Video Demonstration
+[![Watch the video](https://img.youtube.com/vi/rLZ05pbEgV0/0.jpg)](https://www.youtube.com/watch?v=rLZ05pbEgV0)
+
