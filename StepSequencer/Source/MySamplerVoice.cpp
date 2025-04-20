@@ -9,6 +9,13 @@
 */
 
 #include "MySamplerVoice.h"
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
 void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
   mSampleRate = sampleRate;
@@ -72,11 +79,22 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   }
 }
 
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
   buffer.clear();
 
-  triggerSamples(buffer, startSample, numSamples);
+  newTrigger(buffer, startSample, numSamples);
 
   if (!sequencePlaying && fingerMode)
   {
@@ -84,18 +102,30 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   }
 }
 
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
 void MySamplerVoice::updateSamplesActiveState()
 {
   const juce::ScopedLock sl(objectLock);
 
   for (int i = 0; i < size; ++i)
   {
+    // Get step information that is an array of substeps
     auto &currentArray = sequences[i][selectedPattern[i]][currentPatternIndex[i]];
+    // CurrentArray[0] contains information if step plays or not
     if (currentArray[0] == 1 && !isSampleMuted[i])
     {
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
 
+      // CurrentArray[1] conatins the number of substeps
       if (currentArray[1] != 1)
       {
         subStepTimer.startForSample(i, mBpm, currentArray[1]);
@@ -104,10 +134,20 @@ void MySamplerVoice::updateSamplesActiveState()
   }
 }
 
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
 void MySamplerVoice::hiResTimerCallback()
 {
   if (sequencePlaying)
   {
+    // Check BPM Change and update Timer
     if (mBpm != lastBpm)
     {
       startTimer(1000 / ((mBpm / 60.f) * 4));
@@ -116,18 +156,20 @@ void MySamplerVoice::hiResTimerCallback()
 
     for (int i = 0; i < size; i++)
     {
-      int sequenceLength = sequences[i][selectedPattern[i]].size();
-
+      /// Start of pattern
       if (currentPatternIndex[i] == 0)
       {
+        // Check if there are any sequence chained
         if (isSequenceChained[i] && !sequenceChain[i].empty())
         {
+          // Get the next pettern and push the actual to the end
           int currentChainedPattern = sequenceChain[i].front();
           sequenceChain[i].erase(sequenceChain[i].begin());
           sequenceChain[i].push_back(currentChainedPattern);
 
           selectedPattern[i] = currentChainedPattern;
         }
+        // check if there any cached change of pattern
         else if (cachedPattern[i] != -1)
         {
           selectedPattern[i] = cachedPattern[i];
@@ -138,6 +180,7 @@ void MySamplerVoice::hiResTimerCallback()
 
     updateSamplesActiveState();
 
+    // Increment Pattern Index
     for (int i = 0; i < size; i++)
     {
       int sequenceLength = sequences[i][selectedPattern[i]].size();
@@ -145,6 +188,14 @@ void MySamplerVoice::hiResTimerCallback()
     }
   }
 }
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
 
 void MySamplerVoice::activateSample(int sample, int sampleValue)
 {
@@ -159,6 +210,13 @@ void MySamplerVoice::activateSample(int sample, int sampleValue)
     isSampleMuted[sample] = false;
   }
 }
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
 
 void MySamplerVoice::processSample(int voiceIndex)
 {
@@ -219,6 +277,14 @@ void MySamplerVoice::processSample(int voiceIndex)
   }
 }
 
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
 void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
   const juce::ScopedLock sl(objectLock);
@@ -230,8 +296,10 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
   for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
   {
+    // Clear sample temp buffer
     sampleBuffer.clear();
 
+    // If make noise changed
     if (sampleMakeNoise[voiceIndex] != previousSampleMakeNoise[voiceIndex]) // Only act if state has changed
     {
       if (sampleMakeNoise[voiceIndex])
@@ -246,13 +314,17 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       previousSampleMakeNoise[voiceIndex] = sampleMakeNoise[voiceIndex];
     }
 
-    if ((smoothGainRamp[voiceIndex].getCurrentValue() == 0 || (adsrList[voiceIndex].getNextSample() == 0) && samplesPosition[voiceIndex] >= sampleLength[voiceIndex]) && sampleMakeNoise[voiceIndex])
+    // If sample ended -> Make Noise False
+    if ((smoothGainRamp[voiceIndex].getCurrentValue() == 0 || (adsrList[voiceIndex].getNextSample() == 0) &&
+                                                                  samplesPosition[voiceIndex] >= sampleLength[voiceIndex]) &&
+        sampleMakeNoise[voiceIndex])
     {
       sampleMakeNoise[voiceIndex] = false;
     }
 
     if ((smoothGainRamp[voiceIndex].getCurrentValue() != 0 || smoothGainRamp[voiceIndex].getTargetValue() != 0) && sampleMakeNoise[voiceIndex])
     {
+
       if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
       {
         adsrList[voiceIndex].reset();
@@ -315,6 +387,200 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
     buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
   }
 }
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+
+void MySamplerVoice::newTrigger(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
+{
+  const juce::ScopedLock sl(objectLock);
+  juce::ScopedNoDenormals noDenormals;
+
+  juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
+  batchBuffer.clear();
+  juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
+
+  for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
+  {
+    // Clear sample temp buffer
+    sampleBuffer.clear();
+
+    // If make noise changed
+    if (sampleMakeNoise[voiceIndex] != previousSampleMakeNoise[voiceIndex]) // Only act if state has changed
+    {
+      if (sampleMakeNoise[voiceIndex])
+      {
+        smoothGainRamp[voiceIndex].setCurrentAndTargetValue(previousGain[voiceIndex]);
+      }
+      else
+      {
+        smoothGainRamp[voiceIndex].setTargetValue(0.0f);
+      }
+
+      previousSampleMakeNoise[voiceIndex] = sampleMakeNoise[voiceIndex];
+    }
+
+    // If sample ended -> Make Noise False
+    if ((smoothGainRamp[voiceIndex].getCurrentValue() == 0 || (adsrList[voiceIndex].getNextSample() == 0) &&
+                                                                  samplesPosition[voiceIndex] >= sampleLength[voiceIndex]) &&
+        sampleMakeNoise[voiceIndex])
+    {
+      sampleMakeNoise[voiceIndex] = false;
+    }
+
+    if ((smoothGainRamp[voiceIndex].getCurrentValue() != 0 || smoothGainRamp[voiceIndex].getTargetValue() != 0) && sampleMakeNoise[voiceIndex])
+    {
+      bool chng = false;
+
+      if (samplesPosition[voiceIndex] == sampleStart[voiceIndex])
+      {
+        adsrList[voiceIndex].reset();
+        adsrList[voiceIndex].noteOn();
+      }
+
+      for (int sample = 0; sample < numSamples; ++sample)
+      {
+        if (effectChanged[voiceIndex])
+        {
+          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+          {
+            if (samplesPosition[voiceIndex] < initialProcessedSamples[voiceIndex].getNumSamples())
+            {
+              float finalSample = initialProcessedSamples[voiceIndex].getSample(channel, samplesPosition[voiceIndex]);
+              sampleBuffer.addSample(channel, startSample + sample, finalSample);
+            }
+            else
+            {
+              if (samplesPosition[voiceIndex] > 0)
+              {
+                float lastValidSample = initialProcessedSamples[voiceIndex].getSample(channel, initialProcessedSamples[voiceIndex].getNumSamples() - 1);
+                float finalSample = lastValidSample;
+
+                sampleBuffer.addSample(channel, startSample + sample, finalSample);
+              }
+              else
+              {
+                sampleBuffer.addSample(channel, startSample + sample, 0.0f);
+              }
+            }
+          }
+        }
+        else
+        {
+          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+          {
+            if (samplesPosition[voiceIndex] < finalProcessedSamples[voiceIndex]->getNumSamples())
+            {
+              float finalSample = finalProcessedSamples[voiceIndex]->getSample(channel, samplesPosition[voiceIndex]);
+              sampleBuffer.addSample(channel, startSample + sample, finalSample);
+            }
+            else
+            {
+              if (samplesPosition[voiceIndex] > 0)
+              {
+                float lastValidSample = finalProcessedSamples[voiceIndex]->getSample(channel, finalProcessedSamples[voiceIndex]->getNumSamples() - 1);
+                float finalSample = lastValidSample;
+
+                sampleBuffer.addSample(channel, startSample + sample, finalSample);
+              }
+              else
+              {
+                sampleBuffer.addSample(channel, startSample + sample, 0.0f);
+              }
+            }
+          }
+        }
+
+        if (samplesPosition[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
+        {
+          ++samplesPosition[voiceIndex];
+        }
+        else if (adsrList[voiceIndex].getNextSample() >= 1)
+        {
+          adsrList[voiceIndex].noteOff();
+        }
+      }
+
+      if (effectChanged[voiceIndex])
+      {
+        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
+        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+
+        if (smoothLowRamps[voiceIndex].isSmoothing())
+        {
+          lowPasses[voiceIndex].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
+        }
+        if (smoothHighRamps[voiceIndex].isSmoothing())
+        {
+          highPasses[voiceIndex].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
+        }
+
+        if (smoothHighRamps[voiceIndex].getCurrentValue() > 20.0)
+        {
+          highPasses[voiceIndex].snapToZero();
+          highPasses[voiceIndex].process(context);
+        }
+        if (smoothLowRamps[voiceIndex].getCurrentValue() < 20000)
+        {
+          lowPasses[voiceIndex].snapToZero();
+          lowPasses[voiceIndex].process(context);
+        }
+
+        effectsChain[voiceIndex].process(context);
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+          for (int channel = 0; channel < sampleBuffer.getNumChannels(); ++channel)
+          {
+            float tremoloGain;
+            float frequency = lfos[voiceIndex].getFrequency();
+
+            if (frequency < 0.1f)
+            {
+              tremoloGain = 1.0f;
+            }
+            else
+            {
+              tremoloGain = 0.5f * (1.0f + lfos[voiceIndex].processSample(0.0f));
+            }
+            sampleBuffer.applyGain(tremoloGain);
+            finalProcessedSamples[voiceIndex]->setSample(channel, (samplesPosition[voiceIndex] - numSamples) + sample,
+                                                         sampleBuffer.getSample(channel, startSample + sample));
+          }
+        }
+      }
+
+      if (chng)
+      {
+        effectChanged[voiceIndex] = false;
+      }
+    }
+
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+      adsrList[voiceIndex].applyEnvelopeToBuffer(sampleBuffer, 0, numSamples);
+      sampleBuffer.applyGain(smoothGainRamp[voiceIndex].getNextValue());
+
+      batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
+    }
+  }
+
+  for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+  {
+    buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
+  }
+}
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
 
 void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
@@ -421,6 +687,14 @@ void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int sta
     buffer.addFrom(channel, startSample, batchBuffer, channel, 0, numSamples);
   }
 }
+
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
+//////////////
 
 void MySamplerVoice::getFiltersAndTremolo(float &tremoloGain, int voiceIndex)
 {
@@ -554,6 +828,9 @@ void MySamplerVoice::changeHighPassFilterInicial(double sampleRate, int sampleIn
 
 void MySamplerVoice::changeTremolo(int knobValue)
 {
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
+  
   float frequency = (knobValue / 127.0f) * 20.0f;
   lfos[*selectedSample].setFrequency(frequency);
 }
@@ -566,30 +843,22 @@ void MySamplerVoice::changeTremoloInicial(int sampleIndex, int knobValue)
 
 void MySamplerVoice::changeReverb(int knobValue)
 {
-  if ((knobValue > lastReverbKnob[*selectedSample] + 5) || (knobValue < lastReverbKnob[*selectedSample] - 5))
-  {
-    juce::dsp::Reverb::Parameters revParams;
-    float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
 
-    revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
-    revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
-    revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
-    revParams.wetLevel = juce::jlimit(0.0f, 0.3f, normalizedValue * 0.2f);
-    revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
-    revParams.freezeMode = 0.0f;
+  juce::dsp::Reverb::Parameters revParams;
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-    effectsChain[*selectedSample].get<0>().setParameters(revParams);
+  revParams.roomSize = juce::jlimit(0.0f, 0.5f, normalizedValue * 0.5f);
+  revParams.damping = juce::jlimit(0.0f, 0.2f, normalizedValue * 0.4f);
+  revParams.width = juce::jlimit(0.0f, 0.4f, normalizedValue * 0.4f);
+  revParams.wetLevel = juce::jlimit(0.0f, 0.3f, normalizedValue * 0.2f);
+  revParams.dryLevel = juce::jlimit(0.5f, 0.7f, 0.7f - revParams.wetLevel);
+  revParams.freezeMode = 0.0f;
 
-    juce::AudioBuffer<float> tempBuffer(initialProcessedSamples[*selectedSample]);
+  effectsChain[*selectedSample].get<0>().setParameters(revParams);
 
-    juce::dsp::AudioBlock<float> audioBlock(tempBuffer);
-    juce::dsp::ProcessContextReplacing<float> context(audioBlock);
-    effectsChain[*selectedSample].process(context);
-
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
-
-    lastReverbKnob[*selectedSample] = knobValue;
-  }
+  lastReverbKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeReverbInicial(int sample, int knobValue)
@@ -615,21 +884,15 @@ void MySamplerVoice::changeChorus(int knobValue)
 {
   float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-  // effectsChain[*selectedSample].get<1>().setDepth(juce::jlimit(0.0f, 0.3f, 0.05f + (normalizedValue * 0.25f)));
-  // effectsChain[*selectedSample].get<1>().setFeedback(juce::jlimit(0.0f, 0.15f, 0.0f + (normalizedValue * 0.15f)));
-  // effectsChain[*selectedSample].get<1>().setRate(juce::jlimit(0.1f, 1.5f, 0.1f + (normalizedValue * 1.4f)));
-  if ((knobValue > lastChorusKnob[*selectedSample] + 5) || (knobValue < lastChorusKnob[*selectedSample] - 5))
-  {
-    effectsChain[*selectedSample].get<1>().setMix(juce::jlimit(0.0f, 0.8f, normalizedValue));
-    juce::AudioBuffer<float> tempBuffer(initialProcessedSamples[*selectedSample]);
-    juce::dsp::AudioBlock<float> audioBlock(tempBuffer);
-    juce::dsp::ProcessContextReplacing<float> context(audioBlock);
-    effectsChain[*selectedSample].process(context);
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+  effectsChain[*selectedSample].get<1>().setDepth(juce::jlimit(0.0f, 0.3f, 0.05f + (normalizedValue * 0.25f)));
+  effectsChain[*selectedSample].get<1>().setFeedback(juce::jlimit(0.0f, 0.15f, 0.0f + (normalizedValue * 0.15f)));
+  effectsChain[*selectedSample].get<1>().setRate(juce::jlimit(0.1f, 1.5f, 0.1f + (normalizedValue * 1.4f)));
+  effectsChain[*selectedSample].get<1>().setMix(juce::jlimit(0.0f, 0.8f, normalizedValue));
 
-    lastChorusKnob[*selectedSample] = knobValue;
-  }
+  lastChorusKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeChorusInicial(int sample, int knobValue)
@@ -647,26 +910,18 @@ void MySamplerVoice::changeChorusInicial(int sample, int knobValue)
 
 void MySamplerVoice::changeFlanger(int knobValue)
 {
-  if ((knobValue > lastFlangerKnob[*selectedSample] + 5) || (knobValue < lastFlangerKnob[*selectedSample] - 5))
-  {
-    float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
 
-    effectsChain[*selectedSample].get<2>().setDepth(juce::jlimit(0.0f, 0.5f, 0.2f + (normalizedValue * 0.3f)));
-    effectsChain[*selectedSample].get<2>().setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));
-    effectsChain[*selectedSample].get<2>().setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));
-    effectsChain[*selectedSample].get<2>().setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f)));
-    effectsChain[*selectedSample].get<2>().setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-    juce::AudioBuffer<float> tempBuffer(initialProcessedSamples[*selectedSample]);
+  effectsChain[*selectedSample].get<2>().setDepth(juce::jlimit(0.0f, 0.5f, 0.2f + (normalizedValue * 0.3f)));
+  effectsChain[*selectedSample].get<2>().setFeedback(juce::jlimit(0.0f, 0.95f, 0.6f + (normalizedValue * 0.3f)));
+  effectsChain[*selectedSample].get<2>().setRate(juce::jlimit(0.0f, 0.8f, 0.2f + (normalizedValue * 0.6f)));
+  effectsChain[*selectedSample].get<2>().setCentreDelay(juce::jlimit(0.5f, 3.0f, 0.7f + (normalizedValue * 2.3f)));
+  effectsChain[*selectedSample].get<2>().setMix(juce::jlimit(0.0f, 0.5f, (normalizedValue)));
 
-    juce::dsp::AudioBlock<float> audioBlock(tempBuffer);
-    juce::dsp::ProcessContextReplacing<float> context(audioBlock);
-    effectsChain[*selectedSample].process(context);
-
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
-
-    lastFlangerKnob[*selectedSample] = knobValue;
-  }
+  lastFlangerKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changeFlangerInicial(int sample, int knobValue)
@@ -684,21 +939,13 @@ void MySamplerVoice::changeFlangerInicial(int sample, int knobValue)
 
 void MySamplerVoice::changePanner(int knobValue)
 {
-  if ((knobValue > lastPannerKnob[*selectedSample] + 5) || (knobValue < lastPannerKnob[*selectedSample] - 5))
-  {
-    float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
-    effectsChain[*selectedSample].get<3>().setPan(panningValue);
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
 
-    juce::AudioBuffer<float> tempBuffer(initialProcessedSamples[*selectedSample]);
+  float panningValue = (static_cast<float>(knobValue) / 127.0f) * 2.0f - 1.0f;
+  effectsChain[*selectedSample].get<3>().setPan(panningValue);
 
-    juce::dsp::AudioBlock<float> audioBlock(tempBuffer);
-    juce::dsp::ProcessContextReplacing<float> context(audioBlock);
-    effectsChain[*selectedSample].process(context);
-
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
-
-    lastPannerKnob[*selectedSample] = knobValue;
-  }
+  lastPannerKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changePannerInicial(int sample, int knobValue)
@@ -711,25 +958,18 @@ void MySamplerVoice::changePannerInicial(int sample, int knobValue)
 
 void MySamplerVoice::changePhaser(int knobValue)
 {
-  if ((knobValue > lastPhaserKnob[*selectedSample] + 5) || (knobValue < lastPhaserKnob[*selectedSample] - 5))
-  {
-    float normalizedValue = static_cast<float>(knobValue) / 127.0f;
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
 
-    effectsChain[*selectedSample].get<4>().setRate(juce::jlimit(0.1f, 10.0f, 0.2f + (normalizedValue * 9.8f)));                     // Phaser rate (0.1Hz to 10Hz)
-    effectsChain[*selectedSample].get<4>().setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
-    effectsChain[*selectedSample].get<4>().setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
-    effectsChain[*selectedSample].get<4>().setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
-    effectsChain[*selectedSample].get<4>().setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));
-    juce::AudioBuffer<float> tempBuffer(initialProcessedSamples[*selectedSample]);
-    juce::dsp::AudioBlock<float> audioBlock(tempBuffer);
-    juce::dsp::ProcessContextReplacing<float> context(audioBlock);
+  float normalizedValue = static_cast<float>(knobValue) / 127.0f;
 
-    effectsChain[*selectedSample].process(context);
+  effectsChain[*selectedSample].get<4>().setRate(juce::jlimit(0.1f, 10.0f, 0.2f + (normalizedValue * 9.8f)));                     // Phaser rate (0.1Hz to 10Hz)
+  effectsChain[*selectedSample].get<4>().setDepth(juce::jlimit(0.0f, 1.0f, 0.4f + (normalizedValue * 0.6f)));                     // Phaser depth (0.4 to 1 for stronger modulation)
+  effectsChain[*selectedSample].get<4>().setCentreFrequency(juce::jlimit(200.0f, 2000.0f, 400.0f + (normalizedValue * 1600.0f))); // Centre frequency (200Hz to 2kHz)
+  effectsChain[*selectedSample].get<4>().setFeedback(juce::jlimit(-0.95f, 0.95f, (normalizedValue * 1.9f - 0.95f)));              // Feedback (-0.95 to 0.95 for phase intensity)
+  effectsChain[*selectedSample].get<4>().setMix(juce::jlimit(0.0f, 1.0f, normalizedValue));
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
-
-    lastPhaserKnob[*selectedSample] = knobValue;
-  }
+  lastPhaserKnob[*selectedSample] = knobValue;
 }
 
 void MySamplerVoice::changePhaserInicial(int sample, int knobValue)
@@ -758,6 +998,9 @@ void MySamplerVoice::clearPattern()
 
 void MySamplerVoice::clearSampleModulation()
 {
+  effectChanged[*selectedSample] = true;
+  processStart[*selectedSample] = -1;
+
   juce::ADSR::Parameters defaultADSRParams;
   defaultADSRParams.attack = 0.0f;
   defaultADSRParams.decay = 0.1f;

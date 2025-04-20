@@ -50,6 +50,7 @@ public:
   void countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
+  void newTrigger(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void activateSample(int sample, int sampleValue);
   void hiResTimerCallback() override;
   void playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
@@ -167,6 +168,8 @@ public:
     float finalValue = (static_cast<float>(knobValue) / 127.0f) * 0.7;
     smoothGainRamp[sampleIndex].setTargetValue(finalValue);
     previousGain[sampleIndex] = finalValue;
+    effectChanged[sampleIndex] = true;
+    processStart[sampleIndex] = -1;
   };
 
   void updateSampleIndex(int indexPosition, int padValue)
@@ -313,4 +316,6 @@ private:
   void processFiltersAndTremolo(float &sample, int voiceIndex, float tremoloGain);
   void processSample(int voiceIndex);
   void processNewEffects(juce::AudioBuffer<float> &buffer, int sampleIndex);
+  std::array<bool, 8> effectChanged = {false};
+  std::array<int, 8> processStart = {-1, -1, -1, -1, -1, -1, -1, -1};
 };

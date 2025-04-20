@@ -600,10 +600,10 @@ int main(int argc, char *argv[])
 
     while (playAudio)
     {
-      if (devmgr.getCpuUsage() > 0.01)
-      {
-        std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
-      }
+      // if (devmgr.getCpuUsage() > 0.01)
+      // {
+      //   std::cout << "cpu: " << devmgr.getCpuUsage() << std::endl;
+      // }
       if (keyPressed())
       {
         playAudio = false;
