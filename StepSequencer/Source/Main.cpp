@@ -1,7 +1,7 @@
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "Metronome.h"
 #include "MySamplerVoice.h"
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <unistd.h>
 #include <termios.h>
@@ -460,7 +460,16 @@ int main(int argc, char *argv[])
     if (std::string(argv[i]) == "--midi-learning")
       midiLearningMode = true;
     else
-      numMidiControllers = std::stoi(argv[i]);
+    {
+      try
+      {
+        numMidiControllers = std::stoi(argv[i]);
+      }
+      catch (...)
+      {
+        std::cerr << "Argumento inválido ignorado: " << argv[i] << std::endl;
+      }
+    }
   }
 
   juce::AudioDeviceManager devmgr;
@@ -468,7 +477,7 @@ int main(int argc, char *argv[])
   juce::AudioIODevice *device = devmgr.getCurrentAudioDevice();
   juce::Synthesiser mySynth;
   juce::AudioFormatManager mAudioFormatManager;
-  std::vector<int> lengthInSamples;
+  std::vector<int> lengthInSamples(8, 1);
   juce::BigInteger range;
   range.setRange(0, 128, true);
 
@@ -493,7 +502,7 @@ int main(int argc, char *argv[])
   mySynth.clearVoices();
   mySynth.clearSounds();
 
-  int maxSamples = 8; // Limitar a 4 samples
+  int maxSamples = 8;
   for (int i = 0; i < sampleFiles.size() && i < maxSamples; ++i)
   {
     std::cout << "Carregando ficheiro: " << sampleFiles[i].getFileName().toStdString() << std::endl;
@@ -501,7 +510,7 @@ int main(int argc, char *argv[])
     std::unique_ptr<juce::AudioFormatReader> formatReader(mAudioFormatManager.createReaderFor(sampleFiles[i]));
     if (formatReader != nullptr)
     {
-      lengthInSamples.push_back(formatReader->lengthInSamples);
+      lengthInSamples[i] = static_cast<int>(formatReader->lengthInSamples);
       mySynth.addSound(new juce::SamplerSound(sampleFiles[i].getFileNameWithoutExtension(), *formatReader, range, 60, 0.0, 0.0, 30.0));
     }
     else
@@ -512,70 +521,76 @@ int main(int argc, char *argv[])
 
   MySamplerVoice myVoice(&mySynth, lengthInSamples.data());
 
-  for (int i = 0; i < maxSamples; ++i)
-  {
-    mySynth.addVoice(&myVoice);
-  }
-
   if (device && device->isOpen())
   {
     MyAudioIODeviceCallback audioCallback(mySynth, myVoice, device);
     MyMidiInputCallback midiInputCallback(mySynth, myVoice, device);
     devmgr.addAudioCallback(&audioCallback);
 
-    if (midiLearningMode)
+    const bool hasAlsaSequencer = juce::File("/dev/snd/seq").existsAsFile();
+
+    if (!hasAlsaSequencer)
+    {
+      std::cerr << "ALSA sequencer indisponível. A correr sem entrada MIDI." << std::endl;
+    }
+
+    if (hasAlsaSequencer && midiLearningMode)
     {
       auto midiInputs = juce::MidiInput::getAvailableDevices();
-      // MyMidiInputCallback midiInputCallback;
 
-      // Listar dispositivos MIDI com índices
-      std::cout << "Dispositivos MIDI disponíveis:" << std::endl;
-      for (size_t i = 0; i < midiInputs.size(); ++i)
+      if (midiInputs.isEmpty())
       {
-        std::cout << i << ": " << midiInputs[i].name << std::endl;
+        std::cerr << "Nenhum dispositivo MIDI disponível para learning mode." << std::endl;
       }
-
-      // Coletar seleção de dispositivos do usuário
-      std::cout << "Insira o(s) índice(s) do(s) dispositivo(s) MIDI que deseja ativar, separados por espaços (ex: 0 2 3): ";
-      std::string input;
-      std::getline(std::cin, input);
-
-      std::istringstream iss(input);
-      int deviceIndex;
-      std::vector<int> selectedDevices;
-
-      while (iss >> deviceIndex)
+      else
       {
-        if (deviceIndex >= 0 && deviceIndex < midiInputs.size())
+        // Listar dispositivos MIDI com índices
+        std::cout << "Dispositivos MIDI disponíveis:" << std::endl;
+        for (size_t i = 0; i < midiInputs.size(); ++i)
         {
-          selectedDevices.push_back(deviceIndex);
+          std::cout << i << ": " << midiInputs[i].name << std::endl;
         }
-        else
+
+        // Coletar seleção de dispositivos do usuário
+        std::cout << "Insira o(s) índice(s) do(s) dispositivo(s) MIDI que deseja ativar, separados por espaços (ex: 0 2 3): ";
+        std::string input;
+        std::getline(std::cin, input);
+
+        std::istringstream iss(input);
+        int deviceIndex;
+        std::vector<int> selectedDevices;
+
+        while (iss >> deviceIndex)
         {
-          std::cerr << "Índice inválido: " << deviceIndex << std::endl;
+          if (deviceIndex >= 0 && deviceIndex < midiInputs.size())
+          {
+            selectedDevices.push_back(deviceIndex);
+          }
+          else
+          {
+            std::cerr << "Índice inválido: " << deviceIndex << std::endl;
+          }
         }
+
+        // Ativar dispositivos selecionados
+        for (int index : selectedDevices)
+        {
+          auto selectedDevice = midiInputs[index];
+          std::cout << "Ativando dispositivo: " << selectedDevice.name << std::endl;
+
+          if (!devmgr.isMidiInputDeviceEnabled(selectedDevice.identifier))
+            devmgr.setMidiInputDeviceEnabled(selectedDevice.identifier, true);
+
+          devmgr.addMidiInputDeviceCallback(selectedDevice.identifier, &midiInputCallback);
+        }
+
+        midiInputCallback.initiateLearningMode();
       }
-
-      // Ativar dispositivos selecionados
-      for (int index : selectedDevices)
-      {
-        auto selectedDevice = midiInputs[index];
-        std::cout << "Ativando dispositivo: " << selectedDevice.name << std::endl;
-
-        if (!devmgr.isMidiInputDeviceEnabled(selectedDevice.identifier))
-          devmgr.setMidiInputDeviceEnabled(selectedDevice.identifier, true);
-
-        devmgr.addMidiInputDeviceCallback(selectedDevice.identifier, &midiInputCallback);
-      }
-
-      midiInputCallback.initiateLearningMode();
     }
-    else
+    else if (hasAlsaSequencer)
     {
       std::cerr << "Modo MIDI Learning não ativado ou número inválido de controladores especificado." << std::endl;
 
-      int lastInputIndex = 0;
-      auto list = juce::MidiInput::getAvailableDevices();
       auto midiInputs = juce::MidiInput::getAvailableDevices();
 
       for (int i = 0; i < midiInputs.size(); i++)
@@ -584,16 +599,30 @@ int main(int argc, char *argv[])
         std::cout << "MIDI NAME: " << midiInputs[i].name << std::endl;
       }
 
-      auto nanoPad = midiInputs[1];
-      auto nanoKontrol = midiInputs[2];
+      if (midiInputs.size() >= 3)
+      {
+        auto nanoPad = midiInputs[1];
+        auto nanoKontrol = midiInputs[2];
 
-      if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
-        devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
-      if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
-        devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
+        if (!devmgr.isMidiInputDeviceEnabled(nanoPad.identifier))
+          devmgr.setMidiInputDeviceEnabled(nanoPad.identifier, true);
+        if (!devmgr.isMidiInputDeviceEnabled(nanoKontrol.identifier))
+          devmgr.setMidiInputDeviceEnabled(nanoKontrol.identifier, true);
 
-      devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
-      devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+        devmgr.addMidiInputDeviceCallback(nanoPad.identifier, &midiInputCallback);
+        devmgr.addMidiInputDeviceCallback(nanoKontrol.identifier, &midiInputCallback);
+      }
+      else
+      {
+        std::cerr << "Menos de 3 dispositivos MIDI encontrados; ativando todos os disponíveis." << std::endl;
+        for (const auto &midiDevice : midiInputs)
+        {
+          if (!devmgr.isMidiInputDeviceEnabled(midiDevice.identifier))
+            devmgr.setMidiInputDeviceEnabled(midiDevice.identifier, true);
+
+          devmgr.addMidiInputDeviceCallback(midiDevice.identifier, &midiInputCallback);
+        }
+      }
     }
 
     bool playAudio = true;

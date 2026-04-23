@@ -1,9 +1,10 @@
 #pragma once
 #include "../JuceLibraryCode/JuceHeader.h"
+#include <atomic>
 
 // Forward declaration of MySamplerVoice
 
-class MySamplerVoice : public juce::SamplerVoice, juce::HighResolutionTimer
+class MySamplerVoice : public juce::SamplerVoice
 {
 public:
   MySamplerVoice(juce::Synthesiser *mySynth, int *lengthInSamples)
@@ -11,8 +12,7 @@ public:
         lengthInSamples(lengthInSamples),
         sampleStart(8, 0),
         adsrList{juce::ADSR(), juce::ADSR(), juce::ADSR(), juce::ADSR()},
-        sequences(8, std::vector<std::vector<std::array<int, 2>>>(8, std::vector<std::array<int, 2>>(64, {0, 1}))),
-        subStepTimer(*this) // Initialize SubstepTimer with this
+        sequences(8, std::vector<std::vector<std::array<int, 2>>>(8, std::vector<std::array<int, 2>>(64, {0, 1})))
   {
     for (int i = 0; i < 8; ++i)
     {
@@ -51,7 +51,6 @@ public:
   void checkSequence(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void activateSample(int sample, int sampleValue);
-  void hiResTimerCallback() override;
   void playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples);
   void playSample(int sampleIndex, int sampleCommand)
   {
@@ -137,6 +136,7 @@ public:
   {
     knobValue = juce::jlimit(0, 127, knobValue);
     mBpm = 80 + ((static_cast<float>(knobValue) / 127.0f) * (207 - 80));
+    updateStepTiming();
   };
 
   void playSequence()
@@ -144,14 +144,23 @@ public:
     for (int i = 0; i < size; i++)
     {
       samplesPosition[i] = sampleStart[i];
+      subStepRemaining[i] = 0;
+      subStepSamplesUntilTrigger[i] = 0;
+      subStepIntervalSamples[i] = 1;
     }
+
+    for (int i = 0; i < size; ++i)
+    {
+      currentPatternIndex[i] = 0;
+    }
+
     sequencePlaying = true;
-    startTimer(1000 / ((mBpm / 60.f) * 4));
+    updateStepTiming();
+    samplesUntilNextStep = 0;
   };
 
   void stopSequence()
   {
-    stopTimer();
     sequencePlaying = false;
 
     for (int i = 0; i < size; i++)
@@ -159,6 +168,8 @@ public:
       smoothGainRamp[i].setTargetValue(0.0f);
       adsrList[i].noteOff();
       currentPatternIndex[i] = 0;
+      subStepRemaining[i] = 0;
+      subStepSamplesUntilTrigger[i] = 0;
     }
   };
 
@@ -209,54 +220,22 @@ public:
 
   std::unique_ptr<int> selectedSample = std::make_unique<int>(0);
 
+  void getPerformanceStats(double &lastBlockMsOut, double &maxBlockMsOut, int &lastActiveVoicesOut, uint64_t &overBudgetBlocksOut) const
+  {
+    lastBlockMsOut = lastBlockProcessMs.load(std::memory_order_relaxed);
+    maxBlockMsOut = maxBlockProcessMs.load(std::memory_order_relaxed);
+    lastActiveVoicesOut = lastActiveVoiceCount.load(std::memory_order_relaxed);
+    overBudgetBlocksOut = overBudgetBlocks.load(std::memory_order_relaxed);
+  }
+
   void saveData();
   void loadData();
   void clearPattern();
   void clearSampleModulation();
 
-  class SubstepTimer : public juce::HighResolutionTimer
-  {
-  public:
-    SubstepTimer(MySamplerVoice &mySamplerVoice)
-        : mySamplerVoice(mySamplerVoice), sampleIndex(-1), subStepCount(1)
-    {
-    }
-
-    void startForSample(int index, int bpm, int subSteps)
-    {
-      sampleIndex = index;
-      subStepCount = subSteps;
-
-      int interval = 1000 / ((bpm / 60.f) * 4 * subStepCount);
-      startTimer(interval);
-    }
-
-    void hiResTimerCallback() override
-    {
-      if (sampleIndex != -1)
-      {
-        mySamplerVoice.samplesPosition[sampleIndex] = mySamplerVoice.sampleStart[sampleIndex];
-        mySamplerVoice.sampleMakeNoise[sampleIndex] = true;
-      }
-      subStepStart++;
-      if (subStepStart >= subStepCount)
-      {
-        subStepStart = 0;
-        stopTimer();
-      }
-    }
-
-  private:
-    MySamplerVoice &mySamplerVoice;
-    int subStepStart = 0;
-    int sampleIndex;
-    int subStepCount;
-  };
-
 private:
   juce::CriticalSection objectLock;
   juce::Synthesiser *mySynth;
-  SubstepTimer subStepTimer;
   std::array<float, 8> previousGain;
   std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothTremoloGain;
   std::array<juce::SmoothedValue<int, juce::ValueSmoothingTypes::Linear>, 8> smoothSampleLength;
@@ -307,6 +286,20 @@ private:
   std::array<juce::dsp::Oscillator<float>, 8> lfos;
   std::array<juce::AudioBuffer<float>, 8> initialProcessedSamples;
   std::array<std::shared_ptr<juce::AudioBuffer<float>>, 8> finalProcessedSamples;
+  juce::AudioBuffer<float> mixScratchBuffer;
+  juce::AudioBuffer<float> voiceScratchBuffer;
+  int stepIntervalSamples{1};
+  int samplesUntilNextStep{0};
+  std::array<int, 8> subStepRemaining = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::array<int, 8> subStepIntervalSamples = {1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 8> subStepSamplesUntilTrigger = {0, 0, 0, 0, 0, 0, 0, 0};
+  std::atomic<double> lastBlockProcessMs{0.0};
+  std::atomic<double> maxBlockProcessMs{0.0};
+  std::atomic<int> lastActiveVoiceCount{0};
+  std::atomic<uint64_t> overBudgetBlocks{0};
+  void updateStepTiming();
+  void advanceSequencer(int numSamples);
+  void processSequencerStep();
   void updateSamplesActiveState();
   void processEffects(juce::AudioBuffer<float> &buffer, int sampleIndex);
   void getFiltersAndTremolo(float &tremoloGain, int voiceIndex);

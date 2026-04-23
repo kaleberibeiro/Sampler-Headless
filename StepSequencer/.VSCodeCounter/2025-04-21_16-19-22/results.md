@@ -1,0 +1,46 @@
+# Summary
+
+Date : 2025-04-21 16:19:22
+
+Directory /home/kalebe/Sampler-Headless/StepSequencer
+
+Total : 6 files,  1415 codes, 24 comments, 317 blanks, all 1756 lines
+
+Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-details.md)
+
+## Languages
+| language | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| java | 6 | 1,415 | 24 | 317 | 1,756 |
+
+## Directories
+| path | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| . | 6 | 1,415 | 24 | 317 | 1,756 |
+| JuceLibraryCode | 6 | 1,415 | 24 | 317 | 1,756 |
+| JuceLibraryCode/modules | 6 | 1,415 | 24 | 317 | 1,756 |
+| JuceLibraryCode/modules/juce_audio_devices | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native/java | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native/java/app | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native/java/app/com | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native/java/app/com/rmsl | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_audio_devices/native/java/app/com/rmsl/juce | 1 | 896 | 15 | 199 | 1,110 |
+| JuceLibraryCode/modules/juce_core | 5 | 519 | 9 | 118 | 646 |
+| JuceLibraryCode/modules/juce_core/native | 5 | 519 | 9 | 118 | 646 |
+| JuceLibraryCode/modules/juce_core/native/java | 3 | 465 | 9 | 98 | 572 |
+| JuceLibraryCode/modules/juce_core/native/java/app | 3 | 465 | 9 | 98 | 572 |
+| JuceLibraryCode/modules/juce_core/native/java/app/com | 3 | 465 | 9 | 98 | 572 |
+| JuceLibraryCode/modules/juce_core/native/java/app/com/rmsl | 3 | 465 | 9 | 98 | 572 |
+| JuceLibraryCode/modules/juce_core/native/java/app/com/rmsl/juce | 3 | 465 | 9 | 98 | 572 |
+| JuceLibraryCode/modules/juce_core/native/javacore | 2 | 54 | 0 | 20 | 74 |
+| JuceLibraryCode/modules/juce_core/native/javacore/app | 1 | 28 | 0 | 10 | 38 |
+| JuceLibraryCode/modules/juce_core/native/javacore/app/com | 1 | 28 | 0 | 10 | 38 |
+| JuceLibraryCode/modules/juce_core/native/javacore/app/com/rmsl | 1 | 28 | 0 | 10 | 38 |
+| JuceLibraryCode/modules/juce_core/native/javacore/app/com/rmsl/juce | 1 | 28 | 0 | 10 | 38 |
+| JuceLibraryCode/modules/juce_core/native/javacore/init | 1 | 26 | 0 | 10 | 36 |
+| JuceLibraryCode/modules/juce_core/native/javacore/init/com | 1 | 26 | 0 | 10 | 36 |
+| JuceLibraryCode/modules/juce_core/native/javacore/init/com/rmsl | 1 | 26 | 0 | 10 | 36 |
+| JuceLibraryCode/modules/juce_core/native/javacore/init/com/rmsl/juce | 1 | 26 | 0 | 10 | 36 |
+
+Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-details.md)

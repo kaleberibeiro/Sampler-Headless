@@ -9,6 +9,87 @@
 */
 
 #include "MySamplerVoice.h"
+
+void MySamplerVoice::updateStepTiming()
+{
+  const double samplesPerStep = (mSampleRate * 60.0) / (juce::jmax(1, mBpm) * 4.0);
+  stepIntervalSamples = juce::jmax(1, static_cast<int>(std::round(samplesPerStep)));
+  if (samplesUntilNextStep <= 0 || samplesUntilNextStep > stepIntervalSamples)
+  {
+    samplesUntilNextStep = stepIntervalSamples;
+  }
+}
+
+void MySamplerVoice::processSequencerStep()
+{
+  for (int i = 0; i < size; ++i)
+  {
+    if (currentPatternIndex[i] == 0)
+    {
+      if (isSequenceChained[i] && !sequenceChain[i].empty())
+      {
+        int currentChainedPattern = sequenceChain[i].front();
+        sequenceChain[i].erase(sequenceChain[i].begin());
+        sequenceChain[i].push_back(currentChainedPattern);
+
+        selectedPattern[i] = currentChainedPattern;
+      }
+      else if (cachedPattern[i] != -1)
+      {
+        selectedPattern[i] = cachedPattern[i];
+        cachedPattern[i] = -1;
+      }
+    }
+  }
+
+  updateSamplesActiveState();
+
+  for (int i = 0; i < size; ++i)
+  {
+    const int sequenceLength = static_cast<int>(sequences[i][selectedPattern[i]].size());
+    currentPatternIndex[i] = (currentPatternIndex[i] + 1) % juce::jmax(1, sequenceLength);
+  }
+}
+
+void MySamplerVoice::advanceSequencer(int numSamples)
+{
+  if (!sequencePlaying)
+  {
+    return;
+  }
+
+  if (mBpm != lastBpm)
+  {
+    updateStepTiming();
+    lastBpm = mBpm;
+  }
+
+  for (int sample = 0; sample < numSamples; ++sample)
+  {
+    if (--samplesUntilNextStep <= 0)
+    {
+      processSequencerStep();
+      samplesUntilNextStep += stepIntervalSamples;
+    }
+
+    for (int voiceIndex = 0; voiceIndex < size; ++voiceIndex)
+    {
+      if (subStepRemaining[voiceIndex] <= 0)
+      {
+        continue;
+      }
+
+      if (--subStepSamplesUntilTrigger[voiceIndex] <= 0)
+      {
+        samplesPosition[voiceIndex] = sampleStart[voiceIndex];
+        sampleMakeNoise[voiceIndex] = true;
+        --subStepRemaining[voiceIndex];
+        subStepSamplesUntilTrigger[voiceIndex] = subStepIntervalSamples[voiceIndex];
+      }
+    }
+  }
+}
+
 void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
   mSampleRate = sampleRate;
@@ -70,10 +151,24 @@ void MySamplerVoice::prepareToPlay(int samplesPerBlockExpected, double sampleRat
   {
     processSample(i);
   }
+
+  mixScratchBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected));
+  voiceScratchBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected));
+  updateStepTiming();
 }
 
 void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
+  const double startMs = juce::Time::getMillisecondCounterHiRes();
+
+  if (numSamples > mixScratchBuffer.getNumSamples())
+  {
+    mixScratchBuffer.setSize(2, numSamples, false, false, true);
+    voiceScratchBuffer.setSize(2, numSamples, false, false, true);
+  }
+
+  advanceSequencer(numSamples);
+
   buffer.clear();
 
   triggerSamples(buffer, startSample, numSamples);
@@ -82,12 +177,25 @@ void MySamplerVoice::countSamples(juce::AudioBuffer<float> &buffer, int startSam
   {
     playSampleProcess(buffer, startSample, numSamples);
   }
+
+  const double elapsedMs = juce::Time::getMillisecondCounterHiRes() - startMs;
+  lastBlockProcessMs.store(elapsedMs, std::memory_order_relaxed);
+
+  double currentMax = maxBlockProcessMs.load(std::memory_order_relaxed);
+  while (elapsedMs > currentMax &&
+         !maxBlockProcessMs.compare_exchange_weak(currentMax, elapsedMs, std::memory_order_relaxed))
+  {
+  }
+
+  const double budgetMs = (static_cast<double>(numSamples) / juce::jmax(1.0, mSampleRate)) * 1000.0;
+  if (elapsedMs > budgetMs)
+  {
+    overBudgetBlocks.fetch_add(1, std::memory_order_relaxed);
+  }
 }
 
 void MySamplerVoice::updateSamplesActiveState()
 {
-  const juce::ScopedLock sl(objectLock);
-
   for (int i = 0; i < size; ++i)
   {
     auto &currentArray = sequences[i][selectedPattern[i]][currentPatternIndex[i]];
@@ -96,52 +204,17 @@ void MySamplerVoice::updateSamplesActiveState()
       samplesPosition[i] = sampleStart[i];
       sampleMakeNoise[i] = true;
 
-      if (currentArray[1] != 1)
+      if (currentArray[1] > 1)
       {
-        subStepTimer.startForSample(i, mBpm, currentArray[1]);
+        subStepRemaining[i] = currentArray[1] - 1;
+        subStepIntervalSamples[i] = juce::jmax(1, stepIntervalSamples / currentArray[1]);
+        subStepSamplesUntilTrigger[i] = subStepIntervalSamples[i];
       }
-    }
-  }
-}
-
-void MySamplerVoice::hiResTimerCallback()
-{
-  if (sequencePlaying)
-  {
-    if (mBpm != lastBpm)
-    {
-      startTimer(1000 / ((mBpm / 60.f) * 4));
-      lastBpm = mBpm;
-    }
-
-    for (int i = 0; i < size; i++)
-    {
-      int sequenceLength = sequences[i][selectedPattern[i]].size();
-
-      if (currentPatternIndex[i] == 0)
+      else
       {
-        if (isSequenceChained[i] && !sequenceChain[i].empty())
-        {
-          int currentChainedPattern = sequenceChain[i].front();
-          sequenceChain[i].erase(sequenceChain[i].begin());
-          sequenceChain[i].push_back(currentChainedPattern);
-
-          selectedPattern[i] = currentChainedPattern;
-        }
-        else if (cachedPattern[i] != -1)
-        {
-          selectedPattern[i] = cachedPattern[i];
-          cachedPattern[i] = -1;
-        }
+        subStepRemaining[i] = 0;
+        subStepSamplesUntilTrigger[i] = 0;
       }
-    }
-
-    updateSamplesActiveState();
-
-    for (int i = 0; i < size; i++)
-    {
-      int sequenceLength = sequences[i][selectedPattern[i]].size();
-      currentPatternIndex[i] = (currentPatternIndex[i] + 1) % sequenceLength;
     }
   }
 }
@@ -162,77 +235,94 @@ void MySamplerVoice::activateSample(int sample, int sampleValue)
 
 void MySamplerVoice::processSample(int voiceIndex)
 {
-  const juce::ScopedLock sl(objectLock);
   juce::ScopedNoDenormals noDenormals;
-  juce::AudioBuffer<float> sampleBuffer(2, sampleLength[voiceIndex]);
-  sampleBuffer.clear();
+
   juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
   juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
   if (samplerSound == nullptr)
     return;
 
+  const int sourceNumSamples = samplerSound->getAudioData()->getNumSamples();
+  const int safeLength = juce::jlimit(1, sourceNumSamples, sampleLength[voiceIndex]);
+
+  sampleLength[voiceIndex] = safeLength;
+  smoothSampleLength[voiceIndex].setCurrentAndTargetValue(safeLength);
+
+  juce::AudioBuffer<float> sampleBuffer(2, safeLength);
+  sampleBuffer.clear();
+
   const int soundChannels = samplerSound->getAudioData()->getNumChannels();
 
   effectsChain[voiceIndex].reset();
-  lowPasses[voiceIndex].reset();
-  highPasses[voiceIndex].reset();
-  lfos[voiceIndex].reset();
 
   for (int channel = 0; channel < sampleBuffer.getNumChannels(); ++channel)
   {
     const int soundChannelIndex = channel % soundChannels;
     const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
 
-    for (int sample = 0; sample < sampleLength[voiceIndex]; ++sample)
+    for (int sample = 0; sample < safeLength; ++sample)
     {
-      float processedSample = audioData[sample];
-
-      float tremoloGain;
-      getFiltersAndTremolo(tremoloGain, voiceIndex);
-      processFiltersAndTremolo(processedSample, voiceIndex, tremoloGain);
-
-      sampleBuffer.setSample(channel, sample, processedSample);
+      sampleBuffer.setSample(channel, sample, audioData[sample]);
     }
   }
 
-  initialProcessedSamples[voiceIndex].setSize(2, sampleLength[voiceIndex]);
+  initialProcessedSamples[voiceIndex].setSize(2, safeLength);
   initialProcessedSamples[voiceIndex].clear();
 
   if (initialProcessedSamples[voiceIndex].getNumSamples() == 0)
   {
-    initialProcessedSamples[voiceIndex].setSize(2, sampleLength[voiceIndex]);
+    initialProcessedSamples[voiceIndex].setSize(2, safeLength);
   }
-  if (finalProcessedSamples[voiceIndex] == nullptr || finalProcessedSamples[voiceIndex]->getNumSamples() == 0)
-  {
-    finalProcessedSamples[voiceIndex] = std::make_unique<juce::AudioBuffer<float>>(2, sampleLength[voiceIndex]);
-  }
-
   for (int channel = 0; channel < sampleBuffer.getNumChannels(); ++channel)
   {
-    initialProcessedSamples[voiceIndex].copyFrom(channel, 0, sampleBuffer, channel, 0, sampleLength[voiceIndex]);
+    initialProcessedSamples[voiceIndex].copyFrom(channel, 0, sampleBuffer, channel, 0, safeLength);
   }
+
   processEffects(sampleBuffer, voiceIndex);
-
-  for (int channel = 0; channel < sampleBuffer.getNumChannels(); ++channel)
-  {
-    finalProcessedSamples[voiceIndex]->copyFrom(channel, 0, sampleBuffer, channel, 0, sampleLength[voiceIndex]);
-  }
 }
 
 void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
-  const juce::ScopedLock sl(objectLock);
   juce::ScopedNoDenormals noDenormals;
 
-  juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
+  auto &batchBuffer = mixScratchBuffer;
   batchBuffer.clear();
-  juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
 
-  for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
+  std::array<int, 8> activeVoices = {0, 0, 0, 0, 0, 0, 0, 0};
+  int activeVoiceCount = 0;
+
+  for (int voiceIndex = 0; voiceIndex < size; ++voiceIndex)
   {
+    const auto cache = std::atomic_load(&finalProcessedSamples[voiceIndex]);
+    if (cache == nullptr || cache->getNumSamples() == 0)
+    {
+      continue;
+    }
+
+    const bool hasGainRamp = smoothGainRamp[voiceIndex].getCurrentValue() != 0.0f ||
+                             smoothGainRamp[voiceIndex].getTargetValue() != 0.0f;
+
+    if (sampleMakeNoise[voiceIndex] || hasGainRamp)
+    {
+      activeVoices[activeVoiceCount++] = voiceIndex;
+    }
+  }
+
+  lastActiveVoiceCount.store(activeVoiceCount, std::memory_order_relaxed);
+
+  for (int activeIndex = 0; activeIndex < activeVoiceCount; ++activeIndex)
+  {
+    const int voiceIndex = activeVoices[activeIndex];
+    auto cache = std::atomic_load(&finalProcessedSamples[voiceIndex]);
+    if (cache == nullptr || cache->getNumSamples() == 0)
+    {
+      continue;
+    }
+
+    auto &sampleBuffer = voiceScratchBuffer;
     sampleBuffer.clear();
 
-    if (sampleMakeNoise[voiceIndex] != previousSampleMakeNoise[voiceIndex]) // Only act if state has changed
+    if (sampleMakeNoise[voiceIndex] != previousSampleMakeNoise[voiceIndex])
     {
       if (sampleMakeNoise[voiceIndex])
       {
@@ -246,7 +336,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
       previousSampleMakeNoise[voiceIndex] = sampleMakeNoise[voiceIndex];
     }
 
-    if ((smoothGainRamp[voiceIndex].getCurrentValue() == 0 || (adsrList[voiceIndex].getNextSample() == 0) && samplesPosition[voiceIndex] >= sampleLength[voiceIndex]) && sampleMakeNoise[voiceIndex])
+    if (sampleMakeNoise[voiceIndex] && samplesPosition[voiceIndex] >= sampleLength[voiceIndex] && !adsrList[voiceIndex].isActive())
     {
       sampleMakeNoise[voiceIndex] = false;
     }
@@ -259,6 +349,7 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
         adsrList[voiceIndex].noteOn();
       }
 
+      const int cacheNumSamples = cache->getNumSamples();
       for (int sample = 0; sample < numSamples; ++sample)
       {
         float gainValue = smoothGainRamp[voiceIndex].getNextValue();
@@ -266,9 +357,9 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
-          if (samplesPosition[voiceIndex] < finalProcessedSamples[voiceIndex]->getNumSamples())
+          if (samplesPosition[voiceIndex] < cacheNumSamples)
           {
-            float finalSample = finalProcessedSamples[voiceIndex]->getSample(channel, samplesPosition[voiceIndex]);
+            float finalSample = cache->getSample(channel, samplesPosition[voiceIndex]);
             finalSample *= gainValue * adsrValue;
 
             float tremoloGain;
@@ -280,8 +371,8 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
           {
             if (samplesPosition[voiceIndex] > 0)
             {
-              float lastValidSample = finalProcessedSamples[voiceIndex]->getSample(channel, finalProcessedSamples[voiceIndex]->getNumSamples() - 1);
-              float fadeOutFactor = 1.0f - (static_cast<float>(samplesPosition[voiceIndex] - finalProcessedSamples[voiceIndex]->getNumSamples()) / numSamples);
+              float lastValidSample = cache->getSample(channel, cacheNumSamples - 1);
+              float fadeOutFactor = 1.0f - (static_cast<float>(samplesPosition[voiceIndex] - cacheNumSamples) / numSamples);
               float fadeOutSample = lastValidSample * fadeOutFactor * gainValue * adsrValue;
 
               sampleBuffer.addSample(channel, startSample + sample, fadeOutSample);
@@ -318,101 +409,86 @@ void MySamplerVoice::triggerSamples(juce::AudioBuffer<float> &buffer, int startS
 
 void MySamplerVoice::playSampleProcess(juce::AudioBuffer<float> &buffer, int startSample, int numSamples)
 {
-  const juce::ScopedLock sl(objectLock);
-
-  juce::AudioBuffer<float> batchBuffer(buffer.getNumChannels(), numSamples);
+  auto &batchBuffer = mixScratchBuffer;
   batchBuffer.clear();
 
-  for (int voiceIndex = 0; voiceIndex < mySynth->getNumVoices(); ++voiceIndex)
+  std::array<int, 8> activeVoices = {0, 0, 0, 0, 0, 0, 0, 0};
+  int activeVoiceCount = 0;
+
+  for (int voiceIndex = 0; voiceIndex < size; ++voiceIndex)
   {
-    juce::AudioBuffer<float> sampleBuffer(buffer.getNumChannels(), numSamples);
+    const bool hasGainRamp = smoothGainRampFinger[voiceIndex].getCurrentValue() != 0.0f ||
+                             smoothGainRampFinger[voiceIndex].getTargetValue() != 0.0f;
+    if (sampleMakeNoiseFinger[voiceIndex] || hasGainRamp)
+    {
+      activeVoices[activeVoiceCount++] = voiceIndex;
+    }
+  }
+
+  for (int activeIndex = 0; activeIndex < activeVoiceCount; ++activeIndex)
+  {
+    const int voiceIndex = activeVoices[activeIndex];
+    auto cache = std::atomic_load(&finalProcessedSamples[voiceIndex]);
+    if (cache == nullptr || cache->getNumSamples() == 0)
+    {
+      continue;
+    }
+
+    auto &sampleBuffer = voiceScratchBuffer;
     sampleBuffer.clear();
 
-    juce::SynthesiserSound::Ptr soundPtr = mySynth->getSound(voiceIndex);
-    juce::SamplerSound *samplerSound = dynamic_cast<juce::SamplerSound *>(soundPtr.get());
-    if (samplerSound != nullptr)
+    if (smoothGainRampFinger[voiceIndex].getCurrentValue() == 0.0f &&
+        smoothGainRampFinger[voiceIndex].getTargetValue() == 0.0f)
     {
+      sampleMakeNoiseFinger[voiceIndex] = false;
+    }
 
-      if (smoothGainRampFinger[voiceIndex].getNextValue() == 0.0)
+    if (sampleMakeNoiseFinger[voiceIndex])
+    {
+      if (samplesPositionFinger[voiceIndex] == sampleStart[voiceIndex])
       {
-        sampleMakeNoiseFinger[voiceIndex] = false;
+        adsrList[voiceIndex].reset();
+        adsrList[voiceIndex].noteOn();
       }
 
-      if (sampleMakeNoiseFinger[voiceIndex])
+      const int cacheNumSamples = cache->getNumSamples();
+
+      for (int sample = 0; sample < numSamples; ++sample)
       {
-        if (samplesPositionFinger[voiceIndex] == sampleStart[voiceIndex])
+        float gainValue = smoothGainRampFinger[voiceIndex].getNextValue();
+        float adsrValue = adsrList[voiceIndex].getNextSample();
+        float tremoloGain;
+        getFiltersAndTremolo(tremoloGain, voiceIndex);
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
-          adsrList[voiceIndex].reset();
-          adsrList[voiceIndex].noteOn();
-
-          effectsChain[voiceIndex].reset();
-          lowPasses[voiceIndex].reset();
-          highPasses[voiceIndex].reset();
-          lfos[voiceIndex].reset();
-        }
-
-        const int soundChannels = samplerSound->getAudioData()->getNumChannels();
-
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-          float gainValue = smoothGainRampFinger[voiceIndex].getNextValue();
-          float adsrValue = adsrList[voiceIndex].getNextSample();
-          float frequency = lfos[voiceIndex].getFrequency();
-          float tremoloGain;
-
-          if (frequency < 0.1f)
+          if (samplesPositionFinger[voiceIndex] >= cacheNumSamples)
           {
-            tremoloGain = 1.0f;
-          }
-          else
-          {
-            tremoloGain = 0.5f * (1.0f + lfos[voiceIndex].processSample(0.0f));
-          }
-
-          if (smoothLowRamps[voiceIndex].isSmoothing())
-          {
-            lowPasses[voiceIndex].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, smoothLowRamps[voiceIndex].getNextValue());
-          }
-          if (smoothHighRamps[voiceIndex].isSmoothing())
-          {
-            highPasses[voiceIndex].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, smoothHighRamps[voiceIndex].getNextValue());
-          }
-
-          for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-          {
-            const int soundChannelIndex = channel % soundChannels;
-            const float *audioData = samplerSound->getAudioData()->getReadPointer(soundChannelIndex);
-            float finalSamples = audioData[samplesPositionFinger[voiceIndex]] * gainValue * adsrValue;
-
-            // Apply filters conditionally
-            float filteredSamples = finalSamples;
-            filteredSamples = highPasses[voiceIndex].processSample(filteredSamples);
-            filteredSamples = lowPasses[voiceIndex].processSample(filteredSamples);
-
-            filteredSamples *= tremoloGain;
-
-            sampleBuffer.addSample(channel, startSample + sample, filteredSamples);
-          }
-          if (samplesPositionFinger[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
-          {
-            ++samplesPositionFinger[voiceIndex];
-          }
-          else if (adsrList[voiceIndex].getNextSample() >= 1)
-          {
+            sampleMakeNoiseFinger[voiceIndex] = false;
             adsrList[voiceIndex].noteOff();
+            break;
           }
+
+          float finalSample = cache->getSample(channel, samplesPositionFinger[voiceIndex]);
+          finalSample *= gainValue * adsrValue;
+          processFiltersAndTremolo(finalSample, voiceIndex, tremoloGain);
+          sampleBuffer.addSample(channel, startSample + sample, finalSample);
         }
 
-        juce::dsp::AudioBlock<float> audioBlock(sampleBuffer);
-        juce::dsp::ProcessContextReplacing<float> context(audioBlock);
-
-        effectsChain[voiceIndex].process(context);
+        if (samplesPositionFinger[voiceIndex] < smoothSampleLength[voiceIndex].getNextValue())
+        {
+          ++samplesPositionFinger[voiceIndex];
+        }
+        else if (adsrList[voiceIndex].getNextSample() >= 1)
+        {
+          adsrList[voiceIndex].noteOff();
+        }
       }
+    }
 
-      for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-      {
-        batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
-      }
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+      batchBuffer.addFrom(channel, 0, sampleBuffer, channel, 0, numSamples);
     }
   }
 
@@ -447,7 +523,6 @@ void MySamplerVoice::getFiltersAndTremolo(float &tremoloGain, int voiceIndex)
 
 void MySamplerVoice::processFiltersAndTremolo(float &filteredSamples, int voiceIndex, float tremoloGain)
 {
-  const juce::ScopedLock sl(objectLock);
   juce::ScopedNoDenormals noDenormals;
 
   if (smoothHighRamps[voiceIndex].getCurrentValue() > 20.0)
@@ -473,10 +548,8 @@ void MySamplerVoice::processEffects(juce::AudioBuffer<float> &buffer, int sample
 
   effectsChain[sampleIndex].process(context);
 
-  for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-  {
-    finalProcessedSamples[sampleIndex]->copyFrom(channel, 0, buffer, channel, 0, sampleLength[sampleIndex]);
-  }
+  auto renderedCache = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+  std::atomic_store(&finalProcessedSamples[sampleIndex], renderedCache);
 }
 
 void MySamplerVoice::changeAdsrValues(int value, int adsrParam)
@@ -586,7 +659,7 @@ void MySamplerVoice::changeReverb(int knobValue)
     juce::dsp::ProcessContextReplacing<float> context(audioBlock);
     effectsChain[*selectedSample].process(context);
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+    std::atomic_store(&finalProcessedSamples[*selectedSample], std::make_shared<juce::AudioBuffer<float>>(tempBuffer));
 
     lastReverbKnob[*selectedSample] = knobValue;
   }
@@ -626,7 +699,7 @@ void MySamplerVoice::changeChorus(int knobValue)
     juce::dsp::ProcessContextReplacing<float> context(audioBlock);
     effectsChain[*selectedSample].process(context);
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+    std::atomic_store(&finalProcessedSamples[*selectedSample], std::make_shared<juce::AudioBuffer<float>>(tempBuffer));
 
     lastChorusKnob[*selectedSample] = knobValue;
   }
@@ -663,7 +736,7 @@ void MySamplerVoice::changeFlanger(int knobValue)
     juce::dsp::ProcessContextReplacing<float> context(audioBlock);
     effectsChain[*selectedSample].process(context);
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+    std::atomic_store(&finalProcessedSamples[*selectedSample], std::make_shared<juce::AudioBuffer<float>>(tempBuffer));
 
     lastFlangerKnob[*selectedSample] = knobValue;
   }
@@ -695,7 +768,7 @@ void MySamplerVoice::changePanner(int knobValue)
     juce::dsp::ProcessContextReplacing<float> context(audioBlock);
     effectsChain[*selectedSample].process(context);
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+    std::atomic_store(&finalProcessedSamples[*selectedSample], std::make_shared<juce::AudioBuffer<float>>(tempBuffer));
 
     lastPannerKnob[*selectedSample] = knobValue;
   }
@@ -726,7 +799,7 @@ void MySamplerVoice::changePhaser(int knobValue)
 
     effectsChain[*selectedSample].process(context);
 
-    finalProcessedSamples[*selectedSample] = std::make_shared<juce::AudioBuffer<float>>(tempBuffer);
+    std::atomic_store(&finalProcessedSamples[*selectedSample], std::make_shared<juce::AudioBuffer<float>>(tempBuffer));
 
     lastPhaserKnob[*selectedSample] = knobValue;
   }
@@ -944,10 +1017,16 @@ void MySamplerVoice::loadData()
         sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
 
         juce::String startLine = inputStream.readNextLine().trim();
-        sampleStart[sampleIndex] = startLine.fromFirstOccurrenceOf("Start=", false, false).getIntValue();
-
         juce::String lengthLine = inputStream.readNextLine().trim();
-        sampleLength[sampleIndex] = lengthLine.fromFirstOccurrenceOf("Length=", false, false).getIntValue();
+
+        if (sampleIndex < 0 || sampleIndex >= size)
+          continue;
+
+        const int loadedStart = startLine.fromFirstOccurrenceOf("Start=", false, false).getIntValue();
+        const int loadedLength = lengthLine.fromFirstOccurrenceOf("Length=", false, false).getIntValue();
+
+        sampleLength[sampleIndex] = juce::jlimit(1, lengthInSamples[sampleIndex], loadedLength);
+        sampleStart[sampleIndex] = juce::jlimit(0, sampleLength[sampleIndex] - 1, loadedStart);
       }
     }
 
@@ -957,6 +1036,9 @@ void MySamplerVoice::loadData()
       while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
       {
         sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        if (sampleIndex < 0 || sampleIndex >= size)
+          continue;
 
         juce::ADSR::Parameters adsrParams;
         juce::String attackLine = inputStream.readNextLine().trim();
@@ -982,6 +1064,9 @@ void MySamplerVoice::loadData()
       {
         sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
 
+        if (sampleIndex < 0 || sampleIndex >= size)
+          continue;
+
         juce::String lowPassLine = inputStream.readNextLine().trim();
         changeLowPassFilterInicial(mSampleRate, sampleIndex, lowPassLine.fromFirstOccurrenceOf("LowPass=", false, false).getFloatValue());
 
@@ -996,6 +1081,9 @@ void MySamplerVoice::loadData()
       while ((line = inputStream.readNextLine().trim()).startsWith("Sample"))
       {
         sampleIndex = line.fromFirstOccurrenceOf("Sample", false, false).getIntValue();
+
+        if (sampleIndex < 0 || sampleIndex >= size)
+          continue;
 
         juce::String reverbLine = inputStream.readNextLine().trim();
         int reverbValue = reverbLine.fromFirstOccurrenceOf("Reverb=", false, false).getIntValue();

@@ -1,0 +1,8 @@
+"filename", "language", "java", "comment", "blank", "total"
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_audio_devices/native/java/app/com/rmsl/juce/JuceMidiSupport.java", "java", 896, 15, 199, 1110
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_core/native/java/app/com/rmsl/juce/FragmentOverlay.java", "java", 63, 1, 17, 81
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_core/native/java/app/com/rmsl/juce/JuceHTTPStream.java", "java", 357, 7, 66, 430
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_core/native/java/app/com/rmsl/juce/JuceInvocationHandler.java", "java", 45, 1, 15, 61
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_core/native/javacore/app/com/rmsl/juce/JuceApp.java", "java", 28, 0, 10, 38
+"/home/kalebe/Sampler-Headless/StepSequencer/JuceLibraryCode/modules/juce_core/native/javacore/init/com/rmsl/juce/Java.java", "java", 26, 0, 10, 36
+"Total", "-", 1415, 24, 317, 1756
