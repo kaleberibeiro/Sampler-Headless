@@ -1,10 +1,8 @@
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "Metronome.h"
 #include "MySamplerVoice.h"
 #include <iostream>
 #include <vector>
 #include <unistd.h>
-#include <termios.h>
 
 class MyMidiInputCallback : public juce::MidiInputCallback
 {
@@ -213,6 +211,7 @@ private:
     }
     else if (message.getControllerNumber() == 44)
     {
+       std::cout << "aquiiiiiiiii" << std::endl;
       fingerDrumMode = (message.getControllerValue() == 127);
       mySamplerVoice.fingerDrumMode(message.getControllerValue() == 127);
     }

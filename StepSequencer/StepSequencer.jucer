@@ -8,12 +8,6 @@
             file="Source/MySamplerVoice.cpp"/>
       <FILE id="hZaIPW" name="MySamplerVoice.h" compile="0" resource="0"
             file="Source/MySamplerVoice.h"/>
-      <FILE id="aXTdkU" name="SamplerSoundSynth.cpp" compile="1" resource="0"
-            file="Source/SamplerSoundSynth.cpp"/>
-      <FILE id="GdxuLN" name="SamplerSoundSynth.h" compile="0" resource="0"
-            file="Source/SamplerSoundSynth.h"/>
-      <FILE id="ttKlvs" name="Metronome.cpp" compile="1" resource="0" file="Source/Metronome.cpp"/>
-      <FILE id="hbGUUc" name="Metronome.h" compile="0" resource="0" file="Source/Metronome.h"/>
       <FILE id="iQ1UkM" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>
   </MAINGROUP>
